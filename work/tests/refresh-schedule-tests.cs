@@ -23,11 +23,11 @@ internal static class RefreshScheduleTests
             Check(failed.CanAttempt(now.AddMinutes(2),true),"User may retry ordinary connection error");
             for(int i=0;i<20;i++) failed.Failed(now,60,null);
             Check(failed.NextAttempt == now.AddMinutes(15),"Automatic backoff bounded to 15 minutes");
-            failed.Failed(now,60,now.AddHours(2));
+            failed.Failed(now,60,now.AddMinutes(45));
             Check(!failed.CanAttempt(now.AddMinutes(16),true),"Manual action respects server cooldown");
             failed.NetworkRestored(now.AddMinutes(16));
-            Check(failed.NextAttempt == now.AddHours(2),"Network recovery respects server cooldown");
-            Check(failed.CanAttempt(now.AddHours(2),false),"Server cooldown expires at boundary");
+            Check(failed.NextAttempt == now.AddMinutes(45),"Network recovery respects server cooldown");
+            Check(failed.CanAttempt(now.AddMinutes(45),false),"Server cooldown expires at boundary");
             failed.Succeeded(now.AddHours(2),60);
             Check(failed.Failures == 0 && failed.NextAttempt == now.AddHours(2).AddMinutes(1),"Success restores ordinary cadence");
             failed.Failed(now,60,null); failed.Failed(now,60,null);
@@ -37,6 +37,14 @@ internal static class RefreshScheduleTests
             Check(healthy.NextAttempt == now.AddMinutes(1),"Shorter interval applies without waiting for old deadline");
             failed.Failed(now,60,now.AddHours(1)); failed.ChangeInterval(now,60);
             Check(!failed.CanAttempt(now.AddMinutes(1),true),"Settings change cannot bypass server cooldown");
+            var capped = new ProviderRefreshSchedule();
+            capped.Failed(now,60,now.AddDays(1));
+            Check(capped.ServerNotBefore == now.AddHours(1) && capped.NextAttempt == now.AddHours(1),"A day-long Retry-After is capped at one hour");
+            Check(!capped.CanAttempt(now.AddMinutes(59),true) && capped.CanAttempt(now.AddHours(1),true),"Manual refresh returns when the capped cooldown ends");
+            capped.Failed(now.AddHours(1),60,DateTimeOffset.MaxValue);
+            Check(capped.ServerNotBefore == now.AddHours(2),"A maximum Retry-After date cannot lock the provider until restart");
+            capped.Failed(now.AddHours(2),60,now.AddHours(2).AddMinutes(2));
+            Check(capped.ServerNotBefore == now.AddHours(2).AddMinutes(2),"A short Retry-After within the cap is honored exactly");
             Console.WriteLine("Refresh schedule tests passed: " + assertions + " assertions."); return 0;
         } catch(Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }

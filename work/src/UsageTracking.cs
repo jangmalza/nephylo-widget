@@ -967,22 +967,40 @@ namespace UsageWidget
 
         private void Load()
         {
-            string json;
-            try
+            string json = null;
+            for (int attempt = 0; ; attempt++)
             {
-                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                try
                 {
-                    if (stream.Length > MaximumBytes) return;
-                    using (var reader = new StreamReader(stream, Encoding.UTF8, true)) json = reader.ReadToEnd();
+                    using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        if (stream.Length <= MaximumBytes)
+                            using (var reader = new StreamReader(stream, Encoding.UTF8, true)) json = reader.ReadToEnd();
+                    }
+                    break;
+                }
+                catch (FileNotFoundException) { return; }
+                catch (DirectoryNotFoundException) { return; }
+                catch (IOException error)
+                {
+                    // A scanner's brief exclusive handle is not a missing journal.
+                    int code = error.HResult & 0xffff;
+                    if (attempt >= 4 || (code != 32 && code != 33)) throw;
+                    System.Threading.Thread.Sleep(50 * (attempt + 1));
                 }
             }
-            catch (FileNotFoundException) { return; }
-            catch (DirectoryNotFoundException) { return; }
-            JournalDocument document;
-            try { document = new JavaScriptSerializer { MaxJsonLength = MaximumBytes, RecursionLimit = 32 }.Deserialize<JournalDocument>(json); }
-            catch (ArgumentException) { return; }
-            catch (InvalidOperationException) { return; }
-            if (document == null || document.Version != 1) return;
+            JournalDocument document = null;
+            try { if (json != null) document = new JavaScriptSerializer { MaxJsonLength = MaximumBytes, RecursionLimit = 32 }.Deserialize<JournalDocument>(json); }
+            catch (ArgumentException) { }
+            catch (InvalidOperationException) { }
+            if (document == null || document.Version != 1)
+            {
+                // Oversized, corrupt or newer-format history is kept under a new name
+                // so the next save cannot replace it. A failed move throws, and the
+                // app then keeps this run in memory instead of overwriting the file.
+                File.Move(path, Path.Combine(Path.GetDirectoryName(path), "usage-journal.unreadable-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".json"));
+                return;
+            }
             if (document.Options != null) options = CopyOptions(document.Options);
             foreach (PointDocument point in (document.Points ?? new List<PointDocument>()).Take(MaximumPoints * 2))
             {

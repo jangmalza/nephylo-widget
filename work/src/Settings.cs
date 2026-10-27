@@ -62,6 +62,8 @@ namespace UsageWidget
         // The application never sets it, and no external environment variable can redirect storage.
         internal static string DataDirectoryOverride = null;
         internal static string StartupRegistrySubKeyOverride = null;
+        // Set when settings.json exists but could not be read; Save refuses that path.
+        private static string blockedSettingsPath = null;
 
         private static string StartupRegistrySubKey
         {
@@ -97,14 +99,18 @@ namespace UsageWidget
             {
                 WidgetSettings result = new WidgetSettings();
                 string path = Path.Combine(DataDirectory, "settings.json");
+                if (String.Equals(blockedSettingsPath, path, StringComparison.OrdinalIgnoreCase))
+                    blockedSettingsPath = null;
                 try
                 {
-                    if (!File.Exists(path) || new FileInfo(path).Length > 65536)
+                    if (!File.Exists(path))
                         return result;
+                    if (new FileInfo(path).Length > 65536)
+                        return PreserveUnreadable(path);
                     JavaScriptSerializer serializer = CreateSerializer();
-                    Dictionary<string, object> values = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path, Encoding.UTF8));
+                    Dictionary<string, object> values = serializer.Deserialize<Dictionary<string, object>>(ReadText(path));
                     if (values == null)
-                        return result;
+                        return PreserveUnreadable(path);
                     result.AlwaysOnTop = ReadBoolean(values, "AlwaysOnTop", result.AlwaysOnTop);
                     result.StartWithWindows = ReadBoolean(values, "StartWithWindows", result.StartWithWindows);
                     result.CompactView = ReadBoolean(values, "CompactView", result.CompactView);
@@ -146,11 +152,39 @@ namespace UsageWidget
                     result.ClaudeUseExistingStatusLine = ReadBoolean(values, "ClaudeUseExistingStatusLine", false);
                     return Normalize(result);
                 }
-                catch (IOException) { return new WidgetSettings(); }
-                catch (UnauthorizedAccessException) { return new WidgetSettings(); }
-                catch (ArgumentException) { return new WidgetSettings(); }
-                catch (InvalidOperationException) { return new WidgetSettings(); }
+                catch (FileNotFoundException) { return new WidgetSettings(); }
+                catch (DirectoryNotFoundException) { return new WidgetSettings(); }
+                catch (IOException) { blockedSettingsPath = path; return new WidgetSettings(); }
+                catch (UnauthorizedAccessException) { blockedSettingsPath = path; return new WidgetSettings(); }
+                catch (ArgumentException) { return PreserveUnreadable(path); }
+                catch (InvalidOperationException) { return PreserveUnreadable(path); }
             }
+        }
+
+        // A scanner or sync client may briefly hold the file without read sharing.
+        private static string ReadText(string path)
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try { return File.ReadAllText(path, Encoding.UTF8); }
+                catch (IOException error)
+                {
+                    int code = error.HResult & 0xffff;
+                    if (attempt >= 4 || (code != 32 && code != 33)) throw;
+                    System.Threading.Thread.Sleep(50 * (attempt + 1));
+                }
+            }
+        }
+
+        // Keeps an unparseable file under a new name so defaults cannot replace it.
+        // If it cannot be moved, saving stays blocked for this run instead.
+        private static WidgetSettings PreserveUnreadable(string path)
+        {
+            string preserved = Path.Combine(Path.GetDirectoryName(path), "settings.unreadable-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".json");
+            try { File.Move(path, preserved); }
+            catch (IOException) { blockedSettingsPath = path; }
+            catch (UnauthorizedAccessException) { blockedSettingsPath = path; }
+            return new WidgetSettings();
         }
 
         public static void Save(WidgetSettings settings)
@@ -195,7 +229,11 @@ namespace UsageWidget
             byte[] content = new UTF8Encoding(false).GetBytes(CreateSerializer().Serialize(values));
             lock (Gate)
             {
-                WriteAtomically(Path.Combine(DataDirectory, "settings.json"), content);
+                string path = Path.Combine(DataDirectory, "settings.json");
+                // Defaults shown after a failed read must not replace the user's real settings.
+                if (String.Equals(blockedSettingsPath, path, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("설정 파일을 읽지 못해 기존 설정을 보호하려고 저장하지 않았습니다. 위젯을 다시 실행해 주세요.");
+                WriteAtomically(path, content);
             }
         }
 

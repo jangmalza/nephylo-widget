@@ -78,6 +78,9 @@ namespace UsageWidget
                 }
                 widgetGeometryVerticalResize = false;
                 widgetGeometryHorizontalResize = false;
+                // Save a finished move now; logoff can end the process before
+                // the close path writes the window bounds.
+                if (!demo) { CaptureWidgetGeometry(); TrySaveSettings(); }
                 QueueWidgetGeometryRefresh();
                 RequestFitHeight();
             } else if (message == 0x02E0 || message == 0x007E || message == 0x001A) {

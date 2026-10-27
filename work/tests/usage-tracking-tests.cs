@@ -215,10 +215,17 @@ internal static class UsageTrackingTests
         File.WriteAllText(path, "{broken JSON");
         journal = new UsageJournal(directory, false);
         Expect(journal.GetHistory().Count == 0 && journal.Options.HistoryEnabled, "Corrupt journal recovers with empty history and defaults.");
+        string[] preserved = Directory.GetFiles(directory, "usage-journal.unreadable-*.json");
+        Expect(preserved.Length == 1 && File.ReadAllText(preserved[0]) == "{broken JSON" && !File.Exists(path), "A corrupt journal is moved aside before anything can save over it.");
         Observe(journal, 60, Start, null, null);
-        Expect(new UsageJournal(directory, false).GetHistory().Count == 1, "Corrupt journal is replaced by next valid save.");
-        File.WriteAllText(path, "{\"Version\": 9, \"Options\": {\"LowThresholdPercent\": 1}}");
+        Expect(new UsageJournal(directory, false).GetHistory().Count == 1 && File.ReadAllText(preserved[0]) == "{broken JSON", "The next valid save starts a new journal and leaves the preserved file untouched.");
+        string newer = "{\"Version\": 9, \"Options\": {\"LowThresholdPercent\": 1}}";
+        File.WriteAllText(path, newer);
         Expect(new UsageJournal(directory, false).Options.LowThresholdPercent == 20, "Unknown schema is not misinterpreted.");
+        Expect(Directory.GetFiles(directory, "usage-journal.unreadable-*.json").Count(file => File.ReadAllText(file) == newer) == 1, "A newer-format journal left by a rolled-back update is preserved.");
+        using (var large = new FileStream(path, FileMode.Create)) large.SetLength(16777217);
+        Expect(new UsageJournal(directory, false).GetHistory().Count == 0 && !File.Exists(path), "An oversized journal starts empty.");
+        Expect(Directory.GetFiles(directory, "usage-journal.unreadable-*.json").Count(file => new FileInfo(file).Length == 16777217) == 1, "An oversized journal is preserved instead of being replaced.");
         File.WriteAllText(path, "{\"Version\":1,\"Options\":{\"LowEnabled\":false,\"ResetEnabled\":false,\"HistoryEnabled\":true,\"LowThresholdPercent\":30},\"Points\":[],\"States\":[]}");
         var migrated = new UsageJournal(directory,false).Options;
         Expect(!migrated.LowEnabled && migrated.LowThresholdPercent==30 && migrated.HiggsfieldCreditsThreshold==20 && migrated.HiggsfieldApiUsdThreshold==5,"Old settings preserve existing choices and acquire safe absolute-threshold defaults.");
@@ -393,6 +400,13 @@ internal static class UsageTrackingTests
         var loaded = new UsageJournal(directory,false);
         Expect(loaded.GetHistory().Count == 2 && loaded.GetHistory().Last().Remaining == 7,"A briefly held journal read handle does not discard a new measurement.");
         Expect(Directory.GetFiles(directory,"*.tmp").Length == 0,"Successful journal replacement retry cleans its temporary snapshot.");
+        using (var held = new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None)) {
+            var release = new Thread(() => { Thread.Sleep(120); held.Dispose(); });
+            release.Start();
+            try { loaded = new UsageJournal(directory,false); }
+            finally { release.Join(); }
+        }
+        Expect(loaded.GetHistory().Count == 2,"A journal briefly locked at startup is read after a retry instead of failing.");
     }
 
     private static void RecentNotices(string directory)

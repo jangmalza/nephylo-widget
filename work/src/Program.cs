@@ -64,6 +64,7 @@ namespace UsageWidget
                     if (!demo) WidgetDataProfile.Initialize();
                     var window = new WidgetWindow(demo);
                     app.MainWindow = window;
+                    app.SessionEnding += (s, e) => window.SaveForSessionEnd();
                     if (!demo) window.ContentRendered += (s, e) => { WidgetStartup.MarkReady(args); window.ConfirmUpdateStartup(); };
                     var thread = new Thread(() => {
                         while (true) {
@@ -516,29 +517,37 @@ namespace UsageWidget
                 nextRefresh = now.AddSeconds(15);
                 Render(codexView,true); Render(elevenView,false); RefreshLocalExtras(); UpdateFooter(); return;
             }
-            refreshing = true; automaticRefreshInProgress = !manual; refreshButton.IsEnabled = false;
-            codexView.BackgroundRefresh = readCodex && !manual; elevenView.BackgroundRefresh = readEleven && !manual;
-            openAiView.BackgroundRefresh = readOpenAi && !manual; higgsfieldView.BackgroundRefresh = readHiggsfield && !manual;
-            claudeView.BackgroundRefresh = readClaude && !manual;
-            UpdateRefreshMotion();
-            codexView.Busy = readCodex; elevenView.Busy = readEleven;
-            Render(codexView,true); Render(elevenView,false);
-            RefreshLocalExtras();
-            var reads = new List<Task>();
-            if (readCodex) reads.Add(ReadCodexCore(manual));
-            if (readEleven) reads.Add(ReadEleven());
-            if (readOpenAi) reads.Add(ReadOpenAi());
-            if (readHiggsfield) reads.Add(ReadHiggsfield());
-            if (readClaude) reads.Add(ReadClaude());
-            // Extra providers set Busy when their readers start. Refresh shared
-            // feedback afterwards so first reads still announce progress.
-            UpdateFooter();
-            try { await Task.WhenAll(reads); }
+            refreshing = true; automaticRefreshInProgress = !manual;
+            // Everything after the guard is inside try: a UI exception here must
+            // not leave polling, the refresh button and auto-update stopped.
+            try {
+                refreshButton.IsEnabled = false;
+                codexView.BackgroundRefresh = readCodex && !manual; elevenView.BackgroundRefresh = readEleven && !manual;
+                openAiView.BackgroundRefresh = readOpenAi && !manual; higgsfieldView.BackgroundRefresh = readHiggsfield && !manual;
+                claudeView.BackgroundRefresh = readClaude && !manual;
+                UpdateRefreshMotion();
+                codexView.Busy = readCodex; elevenView.Busy = readEleven;
+                Render(codexView,true); Render(elevenView,false);
+                RefreshLocalExtras();
+                var reads = new List<Task>();
+                if (readCodex) reads.Add(ReadCodexCore(manual));
+                if (readEleven) reads.Add(ReadEleven());
+                if (readOpenAi) reads.Add(ReadOpenAi());
+                if (readHiggsfield) reads.Add(ReadHiggsfield());
+                if (readClaude) reads.Add(ReadClaude());
+                // Extra providers set Busy when their readers start. Refresh shared
+                // feedback afterwards so first reads still announce progress. A
+                // feedback error waits for started reads so the guard still covers them.
+                Exception feedbackError = null;
+                try { UpdateFooter(); } catch (Exception error) { feedbackError = error; }
+                await Task.WhenAll(reads);
+                if (feedbackError != null) throw feedbackError;
+            }
             finally {
                 refreshing = false; automaticRefreshInProgress = false;
                 codexView.BackgroundRefresh = elevenView.BackgroundRefresh = openAiView.BackgroundRefresh = higgsfieldView.BackgroundRefresh = false;
                 claudeView.BackgroundRefresh = false;
-                UpdateRefreshMotion(); nextRefresh = DateTimeOffset.Now.AddSeconds(15);
+                nextRefresh = DateTimeOffset.Now.AddSeconds(15); UpdateRefreshMotion();
                 if (!exiting) { refreshButton.IsEnabled = true; Render(codexView,true); Render(elevenView,false); RefreshLocalExtras(); UpdateFooter(); }
                 QueueAutomaticRefresh();
             }
@@ -625,6 +634,18 @@ namespace UsageWidget
         }
         public void Reveal() { Show(); WindowState = WindowState.Normal; Activate(); }
         private void TrySaveSettings() { try { SettingsStore.Save(settings); } catch { if (footer != null) footer.Text = "설정 저장 실패 · 폴더 쓰기 권한을 확인해 주세요"; } }
+
+        // Logoff and shutdown close this window with cancellation ignored, so the
+        // asynchronous flush in Closing never resumes. Save synchronously instead.
+        internal void SaveForSessionEnd()
+        {
+            if (demo || shutdownFlushed) return;
+            exiting = true; timer.Stop();
+            CaptureWidgetGeometry(); TrySaveSettings();
+            try { FlushUsageTrackingAsync().Wait(TimeSpan.FromSeconds(3)); }
+            catch (AggregateException) { /* The previous journal file is left intact. */ }
+            shutdownFlushed = true;
+        }
 
         private void OpenSettings()
         {

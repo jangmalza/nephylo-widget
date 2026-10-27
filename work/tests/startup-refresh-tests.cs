@@ -284,6 +284,38 @@ internal static class StartupRefreshTests
         }
     }
 
+    private static void CheckRefreshRecovery(string root)
+    {
+        using (var f=new Fixture(root)) {
+            var button=(Button)Get(f.Window,"refreshButton");
+            Set(f.Window,"refreshButton",null);
+            Task failed=f.Refresh(true);
+            Check(failed.IsFaulted && failed.Exception!=null,"A UI failure while starting a refresh surfaces as a faulted task");
+            Check(!(bool)Get(f.Window,"refreshing") && !(bool)Get(f.Window,"automaticRefreshInProgress"),"A UI failure while starting a refresh releases the refresh guard");
+            Set(f.Window,"refreshButton",button);
+            Await(f.Refresh(true)); f.Idle();
+            Check(f.ElevenHttp.Calls==1 && f.OpenAiHttp.Calls==1 && button.IsEnabled,"The next refresh reads providers and re-enables the button");
+        }
+    }
+    private static void GeometryMessage(WidgetWindow window,int message)
+    {
+        typeof(WidgetWindow).GetMethod("WidgetGeometryMessage",Flags).Invoke(window,new object[] { IntPtr.Zero,message,IntPtr.Zero,IntPtr.Zero,false });
+    }
+    private static void CheckShutdownPersistence(string root)
+    {
+        using (var f=new Fixture(root)) {
+            GeometryMessage(f.Window,0x0231);
+            f.Window.Left-=37; f.Window.Top+=23;
+            GeometryMessage(f.Window,0x0232);
+            var saved=SettingsStore.Load();
+            Check(saved.Left==f.Window.Left && saved.Top==f.Window.Top,"A finished drag saves the widget position without waiting for exit");
+            f.Window.Left-=11;
+            Call(f.Window,"SaveForSessionEnd");
+            Check(SettingsStore.Load().Left==f.Window.Left,"Logoff or shutdown saves the current position synchronously");
+            Check((bool)Get(f.Window,"shutdownFlushed") && (bool)Get(f.Window,"exiting"),"Session end lets the forced close skip its asynchronous flush");
+        }
+    }
+
     private static string TextOf(DependencyObject node)
     {
         var text=node as TextBlock; if(text!=null) return text.Text;
@@ -335,7 +367,7 @@ internal static class StartupRefreshTests
         string root=Path.Combine(parent,"startup-refresh-fixture-"+Guid.NewGuid().ToString("N"));
         try {
             Directory.CreateDirectory(root); SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
-            CheckAccountlessStartup(root); CheckGuards(root); CheckBackoff(root); CheckLateReadBoundaries(root); CheckPresentation(root); CheckQuietAutomaticRefresh(root);
+            CheckAccountlessStartup(root); CheckGuards(root); CheckBackoff(root); CheckLateReadBoundaries(root); CheckPresentation(root); CheckQuietAutomaticRefresh(root); CheckRefreshRecovery(root); CheckShutdownPersistence(root);
             Console.WriteLine("Startup refresh tests passed: "+checks+" assertions. Synthetic responses only; isolated settings; no polling-delay waits.");
             return 0;
         } catch(Exception error) { Console.Error.WriteLine(error); return 1; }

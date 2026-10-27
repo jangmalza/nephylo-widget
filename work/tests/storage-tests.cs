@@ -100,12 +100,31 @@ internal static class StorageTests
             File.WriteAllText(Path.Combine(isolated, "settings.json"), "{\"Width\":\"999\",\"Height\":null,\"RefreshSeconds\":3.5,\"AlwaysOnTop\":\"false\",\"Left\":-200}");
             loaded = SettingsStore.Load();
             Check(loaded.Width == 320 && loaded.Height == 280 && loaded.RefreshSeconds == 120 && loaded.AlwaysOnTop && loaded.Left == -200, "Invalid JSON field types ignored independently");
-            File.WriteAllText(Path.Combine(isolated, "settings.json"), "{not json");
+            string settingsPath = Path.Combine(isolated, "settings.json");
+            File.WriteAllText(settingsPath, "{not json");
             Check(SettingsStore.Load().RefreshSeconds == 120, "Corrupt settings recovery");
-            File.WriteAllText(Path.Combine(isolated, "settings.json"), "null");
+            Check(!File.Exists(settingsPath) && Directory.GetFiles(isolated, "settings.unreadable-*.json").Length == 1, "Corrupt settings are moved aside instead of being overwritten by defaults");
+            File.WriteAllText(settingsPath, "null");
             Check(SettingsStore.Load().Width == 320, "Null settings recovery");
-            File.WriteAllText(Path.Combine(isolated, "settings.json"), new String('x', 65537));
+            File.WriteAllText(settingsPath, new String('x', 65537));
             Check(SettingsStore.Load().Width == 320, "Oversized settings recovery");
+            Check(Directory.GetFiles(isolated, "settings.unreadable-*.json").Length == 3, "Null and oversized settings are preserved too");
+            SettingsStore.Save(new WidgetSettings { RefreshSeconds = 600 });
+            Check(SettingsStore.Load().RefreshSeconds == 600, "Settings save normally after an unreadable file was preserved");
+            using (new FileStream(settingsPath, FileMode.Open, FileAccess.Read, FileShare.None))
+                Check(SettingsStore.Load().RefreshSeconds == 120, "A settings file that stays locked loads defaults for display");
+            bool refused = false;
+            try { SettingsStore.Save(new WidgetSettings()); } catch (IOException) { refused = true; }
+            Check(refused && SettingsStore.Load().RefreshSeconds == 600, "Defaults from a failed read never overwrite the real settings file");
+            SettingsStore.Save(new WidgetSettings { RefreshSeconds = 600, Width = 400 });
+            Check(SettingsStore.Load().Width == 400, "Saving resumes once the settings file has been read");
+            using (var held = new FileStream(settingsPath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                var release = new System.Threading.Thread(() => { System.Threading.Thread.Sleep(120); held.Dispose(); });
+                release.Start();
+                try { Check(SettingsStore.Load().Width == 400, "A briefly locked settings file is read after a retry"); }
+                finally { release.Join(); }
+            }
 
             const string testKey = "synthetic-test-key-12345-never-a-real-credential";
             SettingsStore.SaveApiKey("  " + testKey + "  ");
