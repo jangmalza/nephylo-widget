@@ -240,7 +240,8 @@ export class MembershipApi {
       return await complete(data);
     } finally { state.pending=false; }
   }
-  async sendCode(email) { this.requireEmail();email=cleanEmail(email);await this.otpRequest('send',()=>this.raw('/auth/v1/otp',{email,create_user:true})); }
+  // Admin sign-in only: a code goes to existing accounts. An unknown address must not create an account or spend the OTP mail budget.
+  async sendCode(email) { this.requireEmail();email=cleanEmail(email);await this.otpRequest('send',()=>this.raw('/auth/v1/otp',{email,create_user:false})); }
   async verify(email,code) {
     this.requireEmail();
     email=cleanEmail(email);

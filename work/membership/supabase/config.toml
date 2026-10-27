@@ -1,7 +1,9 @@
 project_id = "usage-widget-membership"
 
-# Each handler performs its own authorization. The webhook re-reads known orders
-# from Toss; the renewal worker requires a separate scheduler secret.
+# Every billing entry point, the two provider webhooks included, serves the
+# retired handler from _shared/free-distribution.mjs: 410 BILLING_RETIRED with
+# no auth, storage or provider call. verify_jwt stays off because providers and
+# schedulers never send a user JWT; the handler needs none.
 [functions.billing-api]
 verify_jwt = false
 
@@ -11,8 +13,6 @@ verify_jwt = false
 [functions.billing-renew]
 verify_jwt = false
 
-# International API verifies Auth itself; webhook checks raw-body HMAC; the
-# reconciliation worker requires its own server-only scheduler secret.
 [functions.international-billing-api]
 verify_jwt = false
 [functions.international-billing-webhook]

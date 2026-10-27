@@ -188,7 +188,8 @@ namespace UsageWidget
             try {
                 await operation.WaitAsync(cancellation); entered = true;
                 EnsureCurrent(generation);
-                await RequestEmailAsync("auth/v1/otp", new Dictionary<string, object> { { "email", address }, { "create_user", true } }, generation, true, cancellation);
+                // Legacy sign-in reaches existing accounts only; it never registers a new one.
+                await RequestEmailAsync("auth/v1/otp", new Dictionary<string, object> { { "email", address }, { "create_user", false } }, generation, true, cancellation);
                 lock (sync) { EnsureCurrent(generation); emailSendDeadline = now() + 60000; lastError = null; }
             } catch (OperationCanceledException) { if (!IsCurrent(generation)) return; SetError(generation, "인증 서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."); throw new InvalidOperationException(LastError); }
             catch (MembershipRateLimitException error) { if (!IsCurrent(generation)) return; SetError(generation, error.Message); throw; }

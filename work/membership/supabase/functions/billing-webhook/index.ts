@@ -1,3 +1,2 @@
-import { createBillingHandlers } from '../_shared/billing-core.mjs';
-const handlers = createBillingHandlers({ env: Deno.env.toObject() });
-Deno.serve(handlers.webhook);
+import { createRetiredBillingHandler } from '../_shared/free-distribution.mjs';
+Deno.serve(createRetiredBillingHandler(Deno.env.toObject()));

@@ -58,7 +58,7 @@ assert.throws(()=>preparing.beginGoogle(),error=>/Google 로그인 연결 준비
 check(calls.length,0,'Disabled email send, verification and Google start make no network requests');
 check(preparing.session,null,'Disabled verification cannot create a session');
 const api=new MembershipApi(config,fake);
-await api.sendCode('tester@example.com');check(JSON.parse(calls[0].options.body),{email:'tester@example.com',create_user:true});
+await api.sendCode('tester@example.com');check(JSON.parse(calls[0].options.body),{email:'tester@example.com',create_user:false},'Admin OTP never registers a new account');
 check(calls[0].options.headers.Authorization,undefined,'Public key is not a user token');
 await reject(()=>api.verify('tester@example.com','12345'),/6자리/);
 const result=await api.verify('tester@example.com','123456');check(result.plan,'free','Email verification alone cannot grant Pro');

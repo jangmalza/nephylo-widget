@@ -1,5 +1,5 @@
 import {t,text,date,getLocale,onLanguageChange,translateDocument} from './localization.js?v=20261015-free-access';
-import {MembershipApi,membershipFreshness,checkedMembership} from './membership-api.js?v=20261015-free-access';
+import {MembershipApi,membershipFreshness,checkedMembership} from './membership-api.js?v=20261027-admin-signin';
 import {createGoogleLogin} from './google-auth.js?v=1.16.2';
 import {checkedAdminMember,manualEditorValues,checkedManualExpiry,presetManualExpiry,customManualExpiry,manualDescription,billingDescription,internationalDescription,auditDescription} from './admin-members.js?v=20261015-free-access';
 const $=id=>document.getElementById(id);

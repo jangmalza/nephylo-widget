@@ -98,7 +98,7 @@ internal static class MembershipClientTests
                 Check(request.Headers.Authorization == null, "OTP does not leak existing bearer");
                 Check(request.Headers.Contains("apikey"), "public key sent to configured server");
                 var body = MembershipClient.ParseJson(await request.Content.ReadAsStringAsync());
-                Check((string)body["email"] == Address && (bool)body["create_user"], "OTP permits email registration");
+                Check((string)body["email"] == Address && body.ContainsKey("create_user") && !(bool)body["create_user"], "OTP never registers a new account");
                 return Json(new Dictionary<string, object>());
             });
             await client.SendCodeAsync(Address);

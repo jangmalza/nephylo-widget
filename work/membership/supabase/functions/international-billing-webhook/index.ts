@@ -1,2 +1,2 @@
-import { createInternationalBillingHandlers } from '../_shared/international-billing-core.mjs';
-Deno.serve(createInternationalBillingHandlers({ env: Deno.env.toObject() }).webhook);
+import { createRetiredBillingHandler } from '../_shared/free-distribution.mjs';
+Deno.serve(createRetiredBillingHandler(Deno.env.toObject()));

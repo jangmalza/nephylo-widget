@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "sourceCommit": "06386c378c1fc833b1c08a84efb25361fe40f3ac",
+  "sourceCommit": "ef63b89759836dc7e5083d0bda52b11c47f85e08",
   "includesWorkingTreeChanges": false,
   "gitHistoryIncluded": false,
   "releaseBinariesIncluded": false,
@@ -348,8 +348,8 @@
     },
     {
       "path": "work/membership/supabase/config.toml",
-      "bytes": 657,
-      "sha256": "cec6cea3208b1b2394a64bb53bb51ff8a930ba32855989fdee6775f468bb05b4"
+      "bytes": 654,
+      "sha256": "963f14c903b007807714b4d908664f441cb1923d73ae6e8c9687ecae0ba9a762"
     },
     {
       "path": "work/membership/supabase/functions/_shared/billing-core.mjs",
@@ -378,8 +378,8 @@
     },
     {
       "path": "work/membership/supabase/functions/billing-webhook/index.ts",
-      "bytes": 169,
-      "sha256": "0f42e33d5cfd336fecb4411d8d0f26fefa1eba413bdedd9f15e5908738243fc9"
+      "bytes": 142,
+      "sha256": "3f0ec9bb845ab679caa45ca00798175a59713df12c22625fd11b374faa0ddd24"
     },
     {
       "path": "work/membership/supabase/functions/international-billing-api/index.ts",
@@ -393,8 +393,8 @@
     },
     {
       "path": "work/membership/supabase/functions/international-billing-webhook/index.ts",
-      "bytes": 182,
-      "sha256": "8aa58880eebef5af0db3506fa014269b19ad63e6a3380adb5c628ca0a0e81265"
+      "bytes": 142,
+      "sha256": "3f0ec9bb845ab679caa45ca00798175a59713df12c22625fd11b374faa0ddd24"
     },
     {
       "path": "work/membership/tests/admin-sources.test.mjs",
@@ -428,8 +428,8 @@
     },
     {
       "path": "work/membership/tests/free-distribution.test.mjs",
-      "bytes": 1859,
-      "sha256": "4476ae7b4509b3b222db5d891188002c2481beab24003615a21e9d03fb25e5c2"
+      "bytes": 2404,
+      "sha256": "59f97c5df50b2badbf9712701cee0c489b0bd2708c3c66d0acb3f40ee3eb6807"
     },
     {
       "path": "work/membership/tests/international-billing.test.mjs",
@@ -608,8 +608,8 @@
     },
     {
       "path": "work/src/MembershipClient.cs",
-      "bytes": 59071,
-      "sha256": "9e07b622f8a1ec408fbaaa8687dd9ccd2dcb91f0ef4c10e68fe410b018168aa8"
+      "bytes": 59169,
+      "sha256": "6d40b4e1218fedabcd1a4052b29527a59c475c3ba07dee5523891a577232155b"
     },
     {
       "path": "work/src/MembershipUi.cs",
@@ -1173,8 +1173,8 @@
     },
     {
       "path": "work/tests/membership-client-tests.cs",
-      "bytes": 42074,
-      "sha256": "837f43d02fc2bd346e64cbc50cf0c1290efb1e23275e62a6e650f3600dd1bfdf"
+      "bytes": 42113,
+      "sha256": "26b00aeb1f13d94675776241cac79cf225232f52af518a6a1d00efeabab2a252"
     },
     {
       "path": "work/tests/membership-client-tests.ps1",
@@ -1488,8 +1488,8 @@
     },
     {
       "path": "work/website/account-tests.mjs",
-      "bytes": 17952,
-      "sha256": "bdd6ebaa0c0da90b9b2797abf79e1801a2971bd0f0f29cdcf5efedb19e05bec9"
+      "bytes": 17995,
+      "sha256": "9d34fb7ba8be5da113a3057adf359f6cfb16de4312ffa4a24ed4770baa3260c2"
     },
     {
       "path": "work/website/admin-members-tests.mjs",
@@ -1523,8 +1523,8 @@
     },
     {
       "path": "work/website/dist/account/account.js",
-      "bytes": 17496,
-      "sha256": "7fa67d0983b0a82e8c2ed0f7c7a2d4e900d77a638d07862b87df05e2050d59a5"
+      "bytes": 17497,
+      "sha256": "7efbdc463dfe78bc95ccfa7d36b2f030951633aeb54d4135691b8ba771cd8604"
     },
     {
       "path": "work/website/dist/account/admin-members.js",
@@ -1533,8 +1533,8 @@
     },
     {
       "path": "work/website/dist/account/admin.html",
-      "bytes": 10912,
-      "sha256": "e3ecd5a4e8d2bb784425a2d8fbb8548123811bbab30542ba6baa51a99108c461"
+      "bytes": 10913,
+      "sha256": "078a777db2644918686a8769f074c03665f61bc8328394882a7514165cb211b9"
     },
     {
       "path": "work/website/dist/account/billing-model.js",
@@ -1593,8 +1593,8 @@
     },
     {
       "path": "work/website/dist/account/membership-api.js",
-      "bytes": 22981,
-      "sha256": "3a8727f26af8c5968c53efe83f7b00efd97b0237afc114381236f4b1d07ca686"
+      "bytes": 23117,
+      "sha256": "96ae3175ad620aeb134c24a2c5847655945f91cc0d89d95a15fd9e68bbd6b855"
     },
     {
       "path": "work/website/dist/account/payments-ui.js",
