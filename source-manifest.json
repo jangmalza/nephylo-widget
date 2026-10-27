@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "sourceCommit": "ef63b89759836dc7e5083d0bda52b11c47f85e08",
+  "sourceCommit": "406cf5a5d88c58109ac731d34b152d11ae5e3dad",
   "includesWorkingTreeChanges": false,
   "gitHistoryIncluded": false,
   "releaseBinariesIncluded": false,
@@ -1123,8 +1123,8 @@
     },
     {
       "path": "work/tests/higgsfield-ui-tests.cs",
-      "bytes": 42537,
-      "sha256": "994e3c1e8ef4e10691d349c045648d28d358828801c0e347963430324bdddf8d"
+      "bytes": 43729,
+      "sha256": "af9808297f83321470a1ca947d42d3bd0ff869572d8cadffb12a6cebbde78e03"
     },
     {
       "path": "work/tests/higgsfield-ui-tests.ps1",

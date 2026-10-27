@@ -82,7 +82,30 @@ internal static class HiggsfieldUiTests
         PumpUntil(() => Field<CancellationTokenSource>(window, "higgsfieldOperation") == null, "Fixture connection completes within its bound");
         StopBackground(window);
     }
-    private static string[] CliCalls(string path) { return File.Exists(path) ? File.ReadAllLines(path) : new string[0]; }
+    // The window polls this log while hidden fixture processes append to it.
+    // Both sides share read/write access and retry, so a 10 ms overlap cannot
+    // surface as a CLI failure or a missing call.
+    private static string[] CliCalls(string path)
+    {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                if (!File.Exists(path)) return new string[0];
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                using (var reader = new StreamReader(stream, System.Text.Encoding.UTF8))
+                    return reader.ReadToEnd().Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            } catch (IOException) { if (attempt >= 50) throw; Thread.Sleep(10); }
+        }
+    }
+    private static void AppendCliCall(string log, string command)
+    {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                using (var stream = new FileStream(log, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+                using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false))) writer.WriteLine(command);
+                return;
+            } catch (IOException) { if (attempt >= 50) throw; Thread.Sleep(10); }
+        }
+    }
     private static string WorkspaceList(bool multiple)
     {
         return "[{\"id\":\"" + FirstWorkspace + "\",\"name\":\"Personal fixture\",\"plan_type\":\"pro\",\"is_selected\":false}" +
@@ -93,7 +116,7 @@ internal static class HiggsfieldUiTests
         string mode = Environment.GetEnvironmentVariable(FixtureMode);
         string log = Environment.GetEnvironmentVariable(FixtureLog);
         if (String.IsNullOrEmpty(mode) || String.IsNullOrEmpty(log)) return 25;
-        File.AppendAllText(log, args[0] + Environment.NewLine);
+        AppendCliCall(log, args[0]);
         if (mode.StartsWith("gate-",StringComparison.Ordinal)) {
             string gate = Environment.GetEnvironmentVariable(FixtureGate);
             if (String.IsNullOrEmpty(gate)) return 27;
