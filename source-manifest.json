@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "sourceCommit": "a66ccd95dc06b203ec18301b944655849944bfb7",
+  "sourceCommit": "06386c378c1fc833b1c08a84efb25361fe40f3ac",
   "includesWorkingTreeChanges": false,
   "gitHistoryIncluded": false,
   "releaseBinariesIncluded": false,
@@ -1013,8 +1013,8 @@
     },
     {
       "path": "work/tests/dashboard-preferences-tests.cs",
-      "bytes": 24071,
-      "sha256": "3fa52591dce82e3cb823de9053c65a3bd346749db16f1dafe13e56ed80201a34"
+      "bytes": 24595,
+      "sha256": "653239b178c40866f665c81715f7ef8b5680d1e85eabfb15638f53c3509b979c"
     },
     {
       "path": "work/tests/dashboard-preferences-tests.ps1",
@@ -1123,8 +1123,8 @@
     },
     {
       "path": "work/tests/higgsfield-ui-tests.cs",
-      "bytes": 43999,
-      "sha256": "0f6f0902e08ec04c54a78f703874536454ef4c5d0ad7a7b1fbe2c83f6694096b"
+      "bytes": 42537,
+      "sha256": "994e3c1e8ef4e10691d349c045648d28d358828801c0e347963430324bdddf8d"
     },
     {
       "path": "work/tests/higgsfield-ui-tests.ps1",
@@ -1278,8 +1278,8 @@
     },
     {
       "path": "work/tests/run-ci-tests.ps1",
-      "bytes": 11239,
-      "sha256": "512702bf63ccdf008d9095635e5a989b0d4edb55b34da7da4f78c999254d34b2"
+      "bytes": 11303,
+      "sha256": "b93d5b11d05b0878053c13be7810fe9193a96cf8ab99b1af9ef74491323f9580"
     },
     {
       "path": "work/tests/service-operation-tests.cs",

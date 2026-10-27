@@ -180,8 +180,12 @@ internal static class DashboardPreferencesTests
             Check(Text(panel).Contains("저장하지 못했습니다"),"Provider-driven rebuilds do not erase a failed-save explanation");
             var status = Walk(panel).OfType<TextBlock>().Single(block => AutomationProperties.GetAutomationId(block) == "preference-feedback:codex");
             Check(AutomationProperties.GetLiveSetting(status) == AutomationLiveSetting.Polite,"Save feedback is announced to assistive technology without taking focus");
-            var visible = (List<ProviderView>)Call(owner,"DashboardViews");
-            Check(visible.Count <= 1,"Preference controls do not bypass Free service restrictions");
+            var visible = ((List<ProviderView>)Call(owner,"DashboardViews")).Select(view => view.Id).ToList();
+            Check(visible.SequenceEqual(new[] { "codex","gemini","cursor","higgsfield-api" }),"Preference controls leave every connected service listed without a single-service limit");
+            var plan = Field<ServicePlan>(owner,"servicePlan"); string legacy = plan.ActiveServiceId;
+            plan.Select("eleven");
+            try { Check(((List<ProviderView>)Call(owner,"DashboardViews")).Select(view => view.Id).SequenceEqual(visible),"A legacy single-service selection neither hides connected services nor lists an unconnected one"); }
+            finally { plan.Select(legacy); }
         }
         finally { SettingsStore.DataDirectoryOverride = demoPath; Set(owner,"demo",true); }
         codex.Error = "connection failed";
@@ -264,7 +268,7 @@ internal static class DashboardPreferencesTests
             var favoriteFilter = Walk(content.Content as DependencyObject).OfType<CheckBox>().Single(check => AutomationProperties.GetAutomationId(check) == "dashboard-favorites-only");
             favoriteFilter.IsChecked = true; favoriteFilter.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
             grid = Field<System.Windows.Controls.Primitives.UniformGrid>(owner,"dashboardOverviewGrid");
-            Check(grid.Children.Count == 1 && AutomationProperties.GetAutomationId(grid.Children[0]) == "dashboard-service:codex","Favorites-only filtering displays only favorites among already allowed services");
+            Check(grid.Children.Count == 1 && AutomationProperties.GetAutomationId(grid.Children[0]) == "dashboard-service:codex","Favorites-only filtering displays only favorites among connected services");
             Call(owner,"NavigateDashboard","detail");
             after = Field<ComboBox>(owner,"dashboardPreferenceMetric");
             Set(owner,"dashboardPreferenceRefreshPending",true);

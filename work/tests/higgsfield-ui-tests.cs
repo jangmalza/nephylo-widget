@@ -3,13 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -19,12 +16,10 @@ using Forms = System.Windows.Forms;
 // WPF behavior fixtures only. Management windows are opened and closed against
 // an isolated profile; no real CLI, browser login, or account is accessed.
 // Child processes run only this test assembly, with fixed workspace responses.
-// Storage and membership HTTP requests remain inside this isolated test run.
+// Storage stays inside this isolated run; a fake membership endpoint must stay unused.
 internal static class HiggsfieldUiTests
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
-    private const string MemberId = "3d5626b0-19a4-4541-92ce-8aeb824b81b0";
-    private const string Email = "higgsfield-fixture@example.com";
     private const string FirstWorkspace = "108927c1-3159-453d-b9b2-63dafcfd3224";
     private const string SecondWorkspace = "7061167d-ad58-4bdf-9949-8296e8135dba";
     private const string FixtureMode = "USAGE_WIDGET_HIGGSFIELD_UI_MODE";
@@ -122,28 +117,19 @@ internal static class HiggsfieldUiTests
         Field<DispatcherTimer>(window, "noticeTimer").Stop();
         Field<Forms.NotifyIcon>(window, "tray").Visible = false;
     }
+    // The accountless app must never call the retired membership server.
     private sealed class FakeMembership : HttpMessageHandler
     {
-        internal readonly Queue<object> Responses = new Queue<object>();
         internal int Requests;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)
         {
             Requests++;
-            if (request.RequestUri.Host != "test.supabase.co" || Responses.Count == 0) throw new Exception("Unexpected membership fixture request");
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new JavaScriptSerializer().Serialize(Responses.Dequeue()), Encoding.UTF8, "application/json") });
+            throw new Exception("Unexpected membership fixture request");
         }
     }
-    private static object Session()
+    private static string Shown(Dictionary<string, StackPanel> cards)
     {
-        return new Dictionary<string, object> { { "access_token", "fixture-access" }, { "refresh_token", "fixture-refresh" }, { "expires_in", 3600 },
-            { "user", new Dictionary<string, object> { { "id", MemberId }, { "email", Email } } } };
-    }
-    private static object Membership(bool pro)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return new Dictionary<string, object> { { "user_id", MemberId }, { "email", Email }, { "plan", pro ? "pro" : "free" },
-            { "status", pro ? "active" : "free" }, { "expires_at", pro ? (object)now.AddHours(1).ToString("o") : null },
-            { "server_time", now.ToString("o") }, { "is_admin", false }, { "recheck_after_seconds", 300 } };
+        return String.Join(",", cards.Where(p => p.Value.Visibility == Visibility.Visible).Select(p => p.Key).OrderBy(id => id, StringComparer.Ordinal));
     }
 
     [STAThread]
@@ -184,64 +170,61 @@ internal static class HiggsfieldUiTests
             var web = Field<ProviderView>(window, "higgsfieldView");
             var api = Field<ProviderView>(window, "higgsfieldApiView");
             Check(cards.Count == 8 && cards.ContainsKey("higgsfield") && cards.ContainsKey("higgsfield-api"), "Both Higgsfield services register their own cards");
-            Check(cards.Count(p => p.Value.Visibility == Visibility.Visible) == 1 && cards["codex"].Visibility == Visibility.Visible, "Free keeps just its selected card despite stored Higgsfield connections");
+            Check(Shown(cards) == "eleven,higgsfield,higgsfield-api", "Every stored connection shows its card regardless of the legacy single-service selection");
             Check(Object.ReferenceEquals(Call(window, "ViewFor", "higgsfield"), web) && Object.ReferenceEquals(Call(window, "ViewFor", "higgsfield-api"), api), "Fold and layout route to each Higgsfield view");
             Check(ServiceIcons.Get("higgsfield") != null && ServiceIcons.Get("higgsfield-api") != null, "Both service choices have icons");
-            var skipped = (Task)Call(window, "ReadHiggsfield");
-            Check(skipped.IsCompleted, "Nonselected Higgsfield returns immediately without invoking its configured CLI path"); skipped.GetAwaiter().GetResult();
-            Reject(() => Call(window, "SaveHiggsfieldApiBalance", (object)(double?)Double.NaN), "An invalid candidate balance cannot change the active Free service");
-            Check(HiggsfieldSettingsStore.Load().ApiBalanceUsd == 12.5, "Rejected inactive edit preserves the saved API amount");
-            Call(window, "SelectFreeService", "higgsfield");
+            var missing = (Task)Call(window, "ReadHiggsfield");
+            Check(missing.IsCompleted && web.Snapshot == null && !String.IsNullOrEmpty(web.Error) && CliCalls(cliLog).Length == 0, "A stored web connection is read without a Free selection, and a missing configured CLI fails without discovering another executable"); missing.GetAwaiter().GetResult();
+            Reject(() => Call(window, "SaveHiggsfieldApiBalance", (object)(double?)Double.NaN), "An invalid API balance is rejected before saving");
+            Check(HiggsfieldSettingsStore.Load().ApiBalanceUsd == 12.5, "A rejected edit preserves the saved API amount");
             using (var operation = new CancellationTokenSource()) {
                 Set(window, "higgsfieldOperation", operation);
-                Call(window,"SelectFreeService","higgsfield-api");
-                Check(Field<ServicePlan>(window,"servicePlan").IsActive("higgsfield-api"),"An unrelated service is not blocked by Higgsfield work");
-                Call(window,"SelectFreeService","higgsfield");
+                Call(window, "RefreshLocalExtras");
+                Check(api.Snapshot != null && api.Snapshot.Rows.Single().Remaining == 12.5 && cards["higgsfield-api"].Visibility == Visibility.Visible, "Pending Higgsfield web work does not block the independent API balance");
+                web.Error = null;
                 var busyRead = (Task)Call(window, "ReadHiggsfield");
-                Check(busyRead.IsCompleted, "An active Higgsfield operation suppresses overlapping background CLI reads"); busyRead.GetAwaiter().GetResult();
+                Check(busyRead.IsCompleted && web.Error == null, "An active Higgsfield operation suppresses overlapping background CLI reads"); busyRead.GetAwaiter().GetResult();
                 Call(window, "CancelHiggsfieldOperation");
                 Check(operation.IsCancellationRequested, "Cancel reaches the pending connection operation");
                 Check(HiggsfieldSettingsStore.Load().WebConnected && HiggsfieldSettingsStore.Load().ApiBalanceUsd == 12.5, "Cancel does not alter saved connection or API settings");
                 Set(window, "higgsfieldOperation", null);
             }
-            Call(window, "SelectFreeService", "higgsfield-api"); Call(window, "RefreshLocalExtras");
-            Check(cards.Count(p => p.Value.Visibility == Visibility.Visible) == 1 && cards["higgsfield-api"].Visibility == Visibility.Visible, "Free can explicitly switch to the API balance service");
+            Call(window, "RefreshLocalExtras");
+            Check(Shown(cards) == "eleven,higgsfield,higgsfield-api", "The API balance card stays alongside the other connected services");
             Check(api.Snapshot != null && api.Snapshot.Rows.Single().Remaining == 12.5 && api.Snapshot.Rows.Single().DisplayValue == "$12.50", "Saved API balance displays in USD");
             Check(api.Snapshot.Rows.All(row => !row.RemainingPercent.HasValue && !row.ResetsAt.HasValue), "Absolute API balance has no invented ratio or reset deadline");
             Check(api.LastSuccess.HasValue && Math.Abs((api.LastSuccess.Value - expectedTime).TotalSeconds) < 1, "Rendering uses the recorded time rather than refresh time");
             Check(api.Badge.Text.Contains("수동") && String.Join(" ", Texts(api.Body).Select(t => t.Text)).Contains("자동"), "Manual API balance clearly explains its lack of automatic refresh");
             Call(window, "SaveHiggsfieldApiBalance", (object)(double?)0);
             Check(api.Snapshot.Rows.Single().DisplayValue == "$0.00" && HiggsfieldSettingsStore.Load().ApiBalanceUsd == 0, "A zero USD balance remains a valid connected record");
-            Check(Field<UsageJournal>(window, "usageJournal").GetHistory().Count == 0 && Field<List<UsageNotice>>(window, "pendingUsageNotices").Count == 0, "Free manual edits create neither history nor alerts");
-            Call(window, "SelectFreeService", "codex");
+            var pending = Field<List<UsageNotice>>(window, "pendingUsageNotices");
+            Check(Field<UsageJournal>(window, "usageJournal").GetHistory().Any(p => p.ServiceId == "higgsfield-api" && p.Source == "manual" && p.Remaining == 0), "Manual API edits record their amount and source in history");
+            Check(pending.Count == 1 && pending[0].ServiceId == "higgsfield-api" && pending[0].Kind == "empty" && pending[0].Message.Contains(" USD") && !pending[0].Message.Contains("%"), "An empty manual API balance alerts against the USD threshold without a fabricated percentage");
             Call(window, "SaveHiggsfieldApiBalance", new object[] { null });
             var cleared = HiggsfieldSettingsStore.Load();
-            Check(!cleared.ApiBalanceUsd.HasValue && !cleared.ApiObservedAt.HasValue, "API clear removes both its value and timestamp even while inactive");
+            Check(!cleared.ApiBalanceUsd.HasValue && !cleared.ApiObservedAt.HasValue && cards["higgsfield-api"].Visibility == Visibility.Collapsed && pending.Count == 0, "API clear removes its value, timestamp, card and pending alert");
             Check(cleared.WebConnected && cleared.CliPath == initial.CliPath && cleared.WorkspaceId == initial.WorkspaceId, "API clear preserves the independent web connection, CLI path and workspace");
             Check(File.ReadAllBytes(foreignKeyPath).SequenceEqual(foreignKey), "Higgsfield changes preserve another service's encrypted credentials");
             Call(window,"SaveHiggsfieldApiBalance",(object)(double?)3.25);
-            Check(Field<ServicePlan>(window,"servicePlan").IsActive("higgsfield-api") && cards.Count(p=>p.Value.Visibility==Visibility.Visible)==1,"Saving a valid inactive API balance switches exactly one Free service after persistence");
-            Call(window,"SaveHiggsfieldApiBalance",new object[] { null }); Call(window,"SelectFreeService","codex");
+            Check(Shown(cards) == "eleven,higgsfield,higgsfield-api" && ServicePlan.ReadActiveServiceId(data) == "codex","Saving an API balance restores its card without rewriting the legacy single-service selection");
+            Call(window,"SaveHiggsfieldApiBalance",new object[] { null });
 
-            server.Responses.Enqueue(Session()); server.Responses.Enqueue(Membership(true));
-            member.VerifyCodeAsync(Email, "123456").GetAwaiter().GetResult(); Call(window, "ApplyMembershipState"); StopBackground(window);
-            Check(member.HasPro && cards["higgsfield"].Visibility == Visibility.Visible && cards["higgsfield-api"].Visibility == Visibility.Collapsed, "Pro shows connected web credits and hides unrecorded API balance");
-            Check(((IEnumerable<string>)Call(window, "ActiveUsageServices")).Contains("higgsfield") && !((IEnumerable<string>)Call(window, "ActiveUsageServices")).Contains("higgsfield-api"), "Only configured Higgsfield services enter Pro tracking");
+            Check(cards["higgsfield"].Visibility == Visibility.Visible && cards["higgsfield-api"].Visibility == Visibility.Collapsed, "Connected web credits stay visible while an unrecorded API balance is hidden");
+            var tracked = ((IEnumerable<string>)Call(window, "ActiveUsageServices")).ToList();
+            Check(tracked.Contains("higgsfield") && !tracked.Contains("higgsfield-api"), "Only configured Higgsfield services enter tracking");
             Call(window, "SaveHiggsfieldApiBalance", (object)(double?)7.25); StopBackground(window);
-            Check(cards["higgsfield-api"].Visibility == Visibility.Visible && cards["higgsfield"].Visibility == Visibility.Visible, "Pro may display both independently connected Higgsfield services");
-            Check(Field<UsageJournal>(window, "usageJournal").GetHistory().Any(p => p.ServiceId == "higgsfield-api" && p.Source == "manual" && p.Remaining == 7.25), "Pro manual API save records amount and source in history");
-            Check(Field<List<UsageNotice>>(window, "pendingUsageNotices").Count == 0, "Absolute USD balance never triggers a fabricated percentage alert");
+            Check(cards["higgsfield-api"].Visibility == Visibility.Visible && cards["higgsfield"].Visibility == Visibility.Visible, "Both independently connected Higgsfield services display together");
+            Check(Field<UsageJournal>(window, "usageJournal").GetHistory().Any(p => p.ServiceId == "higgsfield-api" && p.Source == "manual" && p.Remaining == 7.25), "A manual API save records amount and source in history");
+            Check(pending.Count == 0, "A USD balance above its threshold queues no alert");
             var webSettings = Field<HiggsfieldSettings>(window, "higgsfieldSettings"); webSettings.WebConnected = false;
             Call(window, "UpdateServiceVisibility");
             Check(cards["higgsfield"].Visibility == Visibility.Collapsed && cards["higgsfield-api"].Visibility == Visibility.Visible, "Disconnecting web credits does not hide the independent API balance");
-            var apiState = HiggsfieldSettingsStore.Load();
-            server.Responses.Enqueue(Membership(false)); member.RefreshAsync().GetAwaiter().GetResult(); Call(window, "ApplyMembershipState"); StopBackground(window);
-            Check(!member.HasPro && cards.Count(p => p.Value.Visibility == Visibility.Visible) == 1 && cards["codex"].Visibility == Visibility.Visible, "Downgrade restores the saved Free service and hides both inactive Higgsfield cards");
-            Check(HiggsfieldSettingsStore.Load().ApiBalanceUsd == apiState.ApiBalanceUsd, "Downgrade preserves the API balance for future reconnection");
+            Check(HiggsfieldSettingsStore.Load().ApiBalanceUsd == 7.25 && ServicePlan.ReadActiveServiceId(data) == "codex", "Higgsfield changes keep the API balance and never rewrite the legacy selection");
             var orderBody = new StackPanel(); Call(window, "BuildOrderControls", orderBody, "higgsfield-api");
             Check(Texts(orderBody).Any(t => t.Text.Contains("8 / 8")), "Service order controls include all eight entries");
             CheckWorkspaceConnectionUi(window, cliLog);
             CheckManagementWindowLifetime(window,cliLog,root);
+            Check(server.Requests == 0, "Higgsfield connections, balances and management windows never contact the retired membership server");
 
             SettingsStore.DataDirectoryOverride = Path.Combine(root, "preview");
             preview = new WidgetWindow(true); StopBackground(preview); Call(preview, "ShowDemo");
@@ -300,7 +283,8 @@ internal static class HiggsfieldUiTests
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(window.Dispatcher));
         try {
             var initial = new HiggsfieldSettings { CliPath = typeof(HiggsfieldUiTests).Assembly.Location, ApiBalanceUsd = 9.25, ApiObservedAt = DateTimeOffset.Now.AddMinutes(-5) };
-            Call(window, "SaveHiggsfieldSettings", initial); Call(window, "SelectFreeService", "codex");
+            Call(window, "SaveHiggsfieldSettings", initial);
+            var cards = Field<Dictionary<string, StackPanel>>(window, "serviceCards");
             var body = ConnectionEditor(window);
             var workspace = Accessible<TextBox>(body, "Higgsfield 워크스페이스 ID");
             var choices = Accessible<ComboBox>(body, "Higgsfield 작업 공간 선택");
@@ -312,7 +296,7 @@ internal static class HiggsfieldUiTests
             var saved = HiggsfieldSettingsStore.Load();
             Check(saved.WebConnected && saved.WorkspaceId == FirstWorkspace && saved.CliPath == initial.CliPath, "A single workspace is recovered and its resolved ID is persisted after verified credits");
             Check(saved.ApiBalanceUsd == initial.ApiBalanceUsd && saved.ApiObservedAt == initial.ApiObservedAt, "Automatic web connection preserves the separate manual API balance and recorded time");
-            Check(Field<ServicePlan>(window, "servicePlan").IsActive("higgsfield") && Field<ProviderView>(window, "higgsfieldView").Snapshot.Rows.Single().Remaining == 120.5, "Recovered connection commits the Free selection and displays verified credits");
+            Check(cards["higgsfield"].Visibility == Visibility.Visible && Field<ProviderView>(window, "higgsfieldView").Snapshot.Rows.Single().Remaining == 120.5, "Recovered connection shows its card with the verified credits");
             Check(CliCalls(cliLog).SequenceEqual(new[] { "account", "workspace", "account" }), "Recovery uses only account status and workspace list, with no login or mutation command");
 
             // The next normal poll must retain a recovered ID as well, otherwise
@@ -325,14 +309,14 @@ internal static class HiggsfieldUiTests
             Check(CliCalls(cliLog).Skip(readStart).SequenceEqual(new[] { "account", "workspace", "account" }), "Background recovery never starts authentication or changes CLI defaults");
 
             initial.WebConnected = false; initial.WorkspaceId = String.Empty;
-            Call(window, "SaveHiggsfieldSettings", initial); Call(window, "SelectFreeService", "codex");
+            Call(window, "SaveHiggsfieldSettings", initial);
             body = ConnectionEditor(window); workspace = Accessible<TextBox>(body, "Higgsfield 워크스페이스 ID");
             choices = Accessible<ComboBox>(body, "Higgsfield 작업 공간 선택");
             int unverifiedStart = CliCalls(cliLog).Length;
             Click(ButtonNamed(body, "작업 공간 불러오기")); WaitForConnection(window);
             Check(choices.Items.Count == 1 && choices.SelectedIndex == 0 && workspace.Text == FirstWorkspace, "An explicit one-workspace lookup supplies a convenient selection without ID copying");
             Check(CliCalls(cliLog).Skip(unverifiedStart).SequenceEqual(new[] { "workspace" }) && !HiggsfieldSettingsStore.Load().WebConnected && HiggsfieldSettingsStore.Load().WorkspaceId.Length == 0, "An unverified lookup never persists a connection or workspace preference");
-            Check(Field<ServicePlan>(window, "servicePlan").IsActive("codex"), "A workspace lookup alone does not switch the active Free service");
+            Check(cards["higgsfield"].Visibility == Visibility.Collapsed, "A workspace lookup alone does not show an unverified web credit card");
             workspace.Clear();
             int loginStart = CliCalls(cliLog).Length;
             Click(ButtonNamed(body, "힉스필드 로그인")); WaitForConnection(window);
@@ -340,7 +324,7 @@ internal static class HiggsfieldUiTests
             Check(HiggsfieldSettingsStore.Load().WebConnected && HiggsfieldSettingsStore.Load().WorkspaceId == FirstWorkspace, "A successful login saves the recovered workspace instead of the pre-login blank ID");
 
             initial.WebConnected = false; initial.WorkspaceId = String.Empty;
-            Call(window, "SaveHiggsfieldSettings", initial); Call(window, "SelectFreeService", "codex");
+            Call(window, "SaveHiggsfieldSettings", initial);
             Environment.SetEnvironmentVariable(FixtureMode, "multiple");
             body = ConnectionEditor(window); workspace = Accessible<TextBox>(body, "Higgsfield 워크스페이스 ID");
             choices = Accessible<ComboBox>(body, "Higgsfield 작업 공간 선택");
@@ -349,7 +333,7 @@ internal static class HiggsfieldUiTests
             Check(DisplayedWithin(choices, body) && choices.Items.Count == 2, "Multiple unselected workspaces reveal the selector in the normal connection screen");
             Check(choices.SelectedIndex == -1 && workspace.Text.Length == 0, "An ambiguous list never silently selects the first workspace");
             Check(Texts(body).Any(t => t.Text.Contains("작업 공간 선택")), "The connection feedback explains the next workspace-selection step");
-            Check(!HiggsfieldSettingsStore.Load().WebConnected && Field<ServicePlan>(window, "servicePlan").IsActive("codex"), "A selection prerequisite never persists an unverified connection or switches the Free service");
+            Check(!HiggsfieldSettingsStore.Load().WebConnected && cards["higgsfield"].Visibility == Visibility.Collapsed, "A selection prerequisite never persists an unverified connection or shows its card");
             Check(CliCalls(cliLog).Skip(selectionStart).SequenceEqual(new[] { "account", "workspace" }), "Ambiguous workspaces stop before an arbitrary account read");
             var first = choices.Items[0] as ComboBoxItem; var second = choices.Items[1] as ComboBoxItem;
             Check(first != null && second != null && Object.Equals(first.Tag, FirstWorkspace) && Object.Equals(second.Tag, SecondWorkspace), "Workspace choices retain their validated UUIDs separately from display labels");
@@ -421,7 +405,6 @@ internal static class HiggsfieldUiTests
             // Creating the owner HWND does not invoke Loaded/membership startup.
             new System.Windows.Interop.WindowInteropHelper(window).EnsureHandle();
             Call(window,"SaveHiggsfieldSettings",new HiggsfieldSettings { CliPath = typeof(HiggsfieldUiTests).Assembly.Location });
-            Call(window,"SelectFreeService","codex");
             string gate = Path.Combine(root,"lifetime-gate-1");
             Environment.SetEnvironmentVariable(FixtureGate,gate);
             Environment.SetEnvironmentVariable(FixtureMode,"gate-single");
