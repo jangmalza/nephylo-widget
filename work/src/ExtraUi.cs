@@ -143,7 +143,7 @@ namespace UsageWidget
         private void EmptyExtra(ProviderView view, string badge, string message)
         {
             if (view.Body == null) return;
-            view.Badge.Text = badge; view.Badge.Foreground = BrushOf("#647070"); view.Badge.ToolTip = message;
+            view.Badge.Text = badge; view.BadgeMark.Active = false; view.Badge.ToolTip = message;
             view.Badge.Visibility = Visibility.Visible;
             UpdateProviderHeaderDetails(view,message);
             view.Body.ToolTip = message; view.Body.Children.Clear();

@@ -128,14 +128,17 @@ namespace UsageWidget
             return String.IsNullOrEmpty(InlineUsageInsightText(analysis,now)) ? null : analysis;
         }
 
-        private FrameworkElement BuildInlineUsageInsight(ProviderView view, UsageRow row, DateTimeOffset now)
+        // A row already marked low keeps its forecast as plain text, so one row never shows two marks.
+        private FrameworkElement BuildInlineUsageInsight(ProviderView view, UsageRow row, DateTimeOffset now, bool emphasizeRisk)
         {
             var analysis = InlineUsageAnalysis(view,row,now);
             if (analysis == null) return null;
             string insight = InlineUsageInsightText(analysis,now);
             var text = T(insight,10,analysis.RiskLevel > 0 ? "#252827" : "#647070",FontWeights.Normal);
             text.TextWrapping = TextWrapping.NoWrap; text.TextTrimming = TextTrimming.CharacterEllipsis;
-            var button = new LocalizedButton { Content = text,Style = (Style)Resources["WidgetServiceToggle"],
+            // Expected depletion before reset (risk 2) or within 24 hours (risk 3) needs attention.
+            object content = emphasizeRisk && analysis.RiskLevel >= 2 ? (object)new AttentionMark(text) : text;
+            var button = new LocalizedButton { Content = content,Style = (Style)Resources["WidgetServiceToggle"],
                 HorizontalAlignment = HorizontalAlignment.Stretch,Margin = new Thickness(-1,3,-1,0),Padding = new Thickness(0,2,0,2),
                 ToolTip = L.Text(insight) + "\n" + L.Text("관측한 사용 추세에 따른 참고값입니다. 사용 패턴에 따라 달라질 수 있습니다.") + "\n" + L.Text("잔량 분석 자세히 보기") };
             string label = row.Label;

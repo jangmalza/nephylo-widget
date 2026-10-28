@@ -89,6 +89,7 @@ internal static class UsageStateConsistencyTests
             foreach(var pair in cards) pair.Value.Visibility=new[] { "codex","claude" }.Contains(pair.Key)?Visibility.Visible:Visibility.Collapsed;
             Check(!window.IsVisible && !window.IsLoaded,"The integration fixture stays hidden without startup side effects");
             CheckRenderedAutomatic(window);
+            CheckAttentionMarks(window);
             CheckClaudeReceiptFlow(window);
             Console.WriteLine("Usage state consistency tests passed: "+checks+" assertions. Hidden fixtures only; no network or user settings accessed.");
             return 0;
@@ -122,6 +123,36 @@ internal static class UsageStateConsistencyTests
         Check(view.Badge.Visibility==Visibility.Collapsed && ((TextBlock)Get(cell,"Warning")).Visibility==Visibility.Collapsed,
             "A successful fresh response clears both actual UI warnings");
         Check(!DashboardAssessment.Assess(view,new UsageTrackingOptions(),DateTimeOffset.Now).HasUnknown,"The same fresh response restores dashboard usability");
+    }
+    private static IEnumerable<DependencyObject> Tree(DependencyObject node)
+    {
+        yield return node;
+        foreach (var child in LogicalTreeHelper.GetChildren(node).OfType<DependencyObject>())
+            foreach (var item in Tree(child)) yield return item;
+    }
+    private static void CheckAttentionMarks(WidgetWindow window)
+    {
+        var view=(ProviderView)Get(window,"codexView"); view.Source="cli"; view.Error=null; view.Issue=null; view.Busy=false; view.LastSuccess=DateTimeOffset.Now;
+        view.Snapshot=new UsageSnapshot { Plan="PRO",Rows=new List<UsageRow> { new UsageRow { Label="Codex · 주간",RemainingPercent=12,ResetsAt=DateTimeOffset.Now.AddDays(2) } } };
+        Call(window,"Render",view,true); Call(window,"RefreshCompactBar");
+        var rowMarks=Tree(view.Body).OfType<AttentionMark>().ToList();
+        Check(rowMarks.Count==1 && rowMarks[0].Active && rowMarks[0].Text.Text=="잔량 부족" && !view.BadgeMark.Active,"A fresh low row is marked in the widget while the connection badge stays calm");
+        var cell=((IDictionary)Get(window,"compactCells"))["codex"];
+        Check(((TextBlock)Get(cell,"Warning")).Visibility==Visibility.Visible && ((Border)Get(cell,"WarningMark")).Visibility==Visibility.Visible
+            && AutomationProperties.GetName((Button)Get(cell,"Button")).Contains("잔량 부족"),"The minibar marks a low balance and names it for screen readers");
+        var card=(Button)Call(window,"BuildDashboardOverviewCard",view); var surface=(Border)card.Content;
+        Check(surface.BorderThickness.Left==2 && Tree(card).OfType<AttentionMark>().Any(mark=>mark.Text.Text=="잔량 부족"),"The dashboard card shows the same low mark with a heavier border");
+
+        view.Snapshot.Rows[0].RemainingPercent=72; view.Error="연결을 확인해 주세요.";
+        Call(window,"Render",view,true); Call(window,"RefreshCompactBar");
+        Check(view.BadgeMark.Active && view.Badge.Text=="이전 값" && !Tree(view.Body).OfType<AttentionMark>().Any(),"A failed read marks the card header, not a balance row");
+        card=(Button)Call(window,"BuildDashboardOverviewCard",view); surface=(Border)card.Content;
+        Check(surface.BorderThickness.Left==2 && Tree(card).OfType<TextBlock>().Any(text=>text.Text=="연결을 확인해 주세요."),"The dashboard card states why the read failed");
+
+        view.Error=null; Call(window,"Render",view,true); Call(window,"RefreshCompactBar");
+        card=(Button)Call(window,"BuildDashboardOverviewCard",view); surface=(Border)card.Content;
+        Check(!view.BadgeMark.Active && !Tree(view.Body).OfType<AttentionMark>().Any() && ((TextBlock)Get(cell,"Warning")).Visibility==Visibility.Collapsed
+            && surface.BorderThickness.Left==1 && !Tree(card).OfType<AttentionMark>().Any(),"A healthy fresh reading shows no attention mark anywhere");
     }
     private static void CheckClaudeReceiptFlow(WidgetWindow window)
     {

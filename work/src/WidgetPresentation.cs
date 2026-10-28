@@ -267,4 +267,43 @@ namespace UsageWidget
             };
         }
     }
+
+    // One monochrome "needs attention" mark shared by widget cards, their rows and
+    // the dashboard. Active, it inverts (dark fill with light text in the light
+    // theme, the reverse in dark) and adds a warning glyph, so a warning stands out
+    // without relying on color. Palette brushes follow later theme changes.
+    internal sealed class AttentionMark : Border
+    {
+        internal readonly TextBlock Text, Glyph;
+        private readonly Brush normalForeground;
+        private readonly FontWeight normalWeight;
+
+        internal AttentionMark(TextBlock text) : this(text,true) { }
+
+        internal AttentionMark(TextBlock text, bool active)
+        {
+            Text = text; normalForeground = text.Foreground; normalWeight = text.FontWeight;
+            Glyph = new TextBlock { Text = "", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = Math.Max(9,text.FontSize - 2),
+                Foreground = WidgetPalette.Brush("#FFFFFF"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,4,0) };
+            // A dock layout lets long translated text trim instead of overflowing.
+            var line = new DockPanel { LastChildFill = true };
+            DockPanel.SetDock(Glyph,Dock.Left); line.Children.Add(Glyph);
+            text.VerticalAlignment = VerticalAlignment.Center; line.Children.Add(text);
+            Child = line; CornerRadius = new CornerRadius(3);
+            HorizontalAlignment = HorizontalAlignment.Left; VerticalAlignment = VerticalAlignment.Center;
+            Active = active;
+        }
+
+        internal bool Active
+        {
+            get { return Glyph.Visibility == Visibility.Visible; }
+            set {
+                Background = value ? WidgetPalette.Brush("#252827") : Brushes.Transparent;
+                Padding = value ? new Thickness(5,1,6,2) : new Thickness(0);
+                Glyph.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                Text.Foreground = value ? WidgetPalette.Brush("#FFFFFF") : normalForeground;
+                Text.FontWeight = value ? FontWeights.SemiBold : normalWeight;
+            }
+        }
+    }
 }

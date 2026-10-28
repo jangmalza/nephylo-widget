@@ -319,45 +319,45 @@ internal static class UsageAnalyticsUiTests
         var row = view.Snapshot.Rows.Single(item => item.Label == "주간 한도");
         var shortRow = view.Snapshot.Rows.Single(item => item.Label == "5시간 한도");
         var journal = Field<UsageJournal>(window,"usageJournal");
-        var button = (Button)Call(window,"BuildInlineUsageInsight",view,row,now);
+        var button = (Button)Call(window,"BuildInlineUsageInsight",view,row,now,true);
         Check(button != null && Text(button).Contains("현 추세라면 초기화까지 여유"),"A mature weekly forecast gives the normal card a qualified reset-first explanation: " + (button == null ? "null" : Text(button))
             + "; id=" + view.Id + "; source=" + Call(window,"CurrentAnalysisSource",view.Id) + "; status=" + journal.GetAnalysis("codex",row.Label,"api",now).Status
             + "; reset=" + row.ResetsAt + "; analysis-reset=" + journal.GetAnalysis("codex",row.Label,"api",now).ResetAt);
         Check(button.Focusable && button.IsTabStop && AutomationProperties.GetName(button).Contains("주간 한도")
             && Convert.ToString(button.ToolTip).Contains("사용 패턴에 따라"),"Inline insights provide a keyboard-accessible exact-metric action and explain estimate uncertainty");
-        Check(Call(window,"BuildInlineUsageInsight",view,shortRow,now) == null,"A short quota never inherits the adjacent weekly forecast");
-        Check(Call(window,"BuildInlineUsageInsight",view,new UsageRow { Label = row.Label,RemainingPercent = 86,ResetsAt = row.ResetsAt },now) == null,
+        Check(Call(window,"BuildInlineUsageInsight",view,shortRow,now,true) == null,"A short quota never inherits the adjacent weekly forecast");
+        Check(Call(window,"BuildInlineUsageInsight",view,new UsageRow { Label = row.Label,RemainingPercent = 86,ResetsAt = row.ResetsAt },now,true) == null,
             "An old or unrelated row object cannot borrow a current forecast with the same label");
         view.Snapshot.Rows.Add(new UsageRow { Label = row.Label,RemainingPercent = 20,ResetsAt = row.ResetsAt });
-        Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"Duplicate labels suppress an ambiguous per-row forecast");
+        Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"Duplicate labels suppress an ambiguous per-row forecast");
         view.Snapshot.Rows.RemoveAt(view.Snapshot.Rows.Count-1);
         string source = view.Source, error = view.Error; var last = view.LastSuccess; var reset = row.ResetsAt; var percent = row.RemainingPercent;
         try {
             view.Source = "manual";
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"Manual records never get an automatic inline forecast");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"Manual records never get an automatic inline forecast");
             view.Source = source; view.Error = "offline";
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"A failed refresh cannot leave a reassuring forecast under the previous balance");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"A failed refresh cannot leave a reassuring forecast under the previous balance");
             view.Error = error; view.LastSuccess = now.AddMinutes(-11);
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"Old provider observations hide the inline forecast even if the journal is still recent");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"Old provider observations hide the inline forecast even if the journal is still recent");
             view.LastSuccess = now.AddMinutes(1);
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"Future observations never generate an inline forecast");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"Future observations never generate an inline forecast");
             view.LastSuccess = last; row.ResetsAt = now.AddMinutes(-1);
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"Expired quotas do not present a post-reset forecast");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"Expired quotas do not present a post-reset forecast");
             row.ResetsAt = reset.Value.AddDays(1);
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"An updated reset cycle cannot reuse the preceding cycle's result before observation");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"An updated reset cycle cannot reuse the preceding cycle's result before observation");
             row.ResetsAt = reset; row.RemainingPercent = 0;
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"An empty balance keeps its actual quantity without an unnecessary forecast claim");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"An empty balance keeps its actual quantity without an unnecessary forecast claim");
         }
         finally { view.Source = source; view.Error = error; view.LastSuccess = last; row.ResetsAt = reset; row.RemainingPercent = percent; }
         var options = journal.Options;
         try {
             var disabled = journal.Options; disabled.HistoryEnabled = false; journal.SaveOptions(disabled);
-            Check(Call(window,"BuildInlineUsageInsight",view,row,now) == null,"History-disabled Pro accounts do not display old derived insights");
+            Check(Call(window,"BuildInlineUsageInsight",view,row,now,true) == null,"History-disabled Pro accounts do not display old derived insights");
         }
         finally { journal.SaveOptions(options); journal.Observe("codex",view.Snapshot,now,"api",now); }
         Set(window,"demo",false);
         try {
-            button = (Button)Call(window,"BuildInlineUsageInsight",view,row,now);
+            button = (Button)Call(window,"BuildInlineUsageInsight",view,row,now,true);
             Check(button != null,"Accountless mode exposes retained inline forecasts");
             Check(button.IsEnabled,"The retained insight action stays enabled without an account");
         }

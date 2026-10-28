@@ -31,6 +31,7 @@ namespace UsageWidget
                     <Setter Property='Padding' Value='0,2'/>
                     <Setter Property='Margin' Value='-1,0,-1,0'/>
                     <Setter Property='HorizontalContentAlignment' Value='Stretch'/>
+                    <Setter Property='VerticalContentAlignment' Value='Center'/>
                     <Setter Property='FocusVisualStyle' Value='{StaticResource WidgetServiceToggleFocus}'/>
                     <Setter Property='Template'>
                         <Setter.Value>
@@ -39,7 +40,7 @@ namespace UsageWidget
                                         CornerRadius='3' BorderThickness='{TemplateBinding BorderThickness}'
                                         BorderBrush='Transparent' Padding='{TemplateBinding Padding}'>
                                     <ContentPresenter HorizontalAlignment='{TemplateBinding HorizontalContentAlignment}'
-                                                      VerticalAlignment='Center'/>
+                                                      VerticalAlignment='{TemplateBinding VerticalContentAlignment}'/>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property='IsMouseOver' Value='True'>

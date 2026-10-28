@@ -527,18 +527,33 @@ namespace UsageWidget
             if (rows.Count > 1) metric += " · " + String.Format(L.Text(rows.Count == 2 ? "외 1개 한도" : "외 {0}개 한도"),rows.Count-1);
             var metricText = DashboardText(metric,11,"#647070",FontWeights.Normal,new Thickness(0,5,0,0)); UiL.Raw(metricText);
             metricText.TextWrapping = TextWrapping.Wrap; metricText.ToolTip = metric; body.Children.Add(metricText);
+            // A failed read says why on the card instead of only fading the last value.
+            if (!String.IsNullOrEmpty(view.Error) && !String.IsNullOrEmpty(presentation.Message)) {
+                var reason = DashboardText(L.Text(presentation.Message),12,"#475256",FontWeights.Normal,new Thickness(0,6,0,0)); UiL.Raw(reason);
+                reason.TextWrapping = TextWrapping.Wrap; reason.TextTrimming = TextTrimming.CharacterEllipsis; reason.MaxHeight = 40;
+                reason.ToolTip = L.Text(presentation.Message); body.Children.Add(reason);
+            }
             var meta = new WrapPanel { Margin = new Thickness(0,14,0,0) };
             string resetText = row != null && row.ResetsAt.HasValue ? !usable ? L.Text("일정 확인 필요") : L.Text(ResetText(row.ResetsAt.Value)) : L.Text("초기화 일정 없음");
             var reset = DashboardText(resetText,13,"#647070",FontWeights.Normal); reset.TextWrapping = TextWrapping.Wrap;
             reset.ToolTip = row != null && row.ResetsAt.HasValue ? L.Text("초기화 예정") + " · " + row.ResetsAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm zzz") : resetText;
             string status = UsagePresentation.ShowBusy(view) ? "갱신 중" : state.HasUnknown ? usable ? "일부 항목 확인 필요" : state.StatusLabel : UsageFreshness.Source(view) == "manual" ? "수동 기록" : state.HasLow ? "잔량 부족" : "";
+            // A provider restriction on otherwise usable rows still names itself.
+            if (String.IsNullOrEmpty(status) && presentation.Warning) status = presentation.Label;
+            bool attention = !UsagePresentation.ShowBusy(view) && !String.IsNullOrEmpty(status) && status != "수동 기록"
+                && (presentation.Warning || state.HasLow || state.Stale);
             string stamp = presentation.ObservedAt.HasValue ? presentation.ObservedAt.Value.ToLocalTime().ToString("MM/dd HH:mm") : "—";
             var statusText = DashboardText(String.IsNullOrEmpty(status) ? L.Text("최근 확인") + " " + stamp : L.Text(status),11,state.HasUnknown || state.HasLow ? "#475256" : "#647070",state.HasUnknown || state.HasLow ? FontWeights.SemiBold : FontWeights.Normal,new Thickness(0,0,10,0));
             UiL.Raw(statusText);
             statusText.TextWrapping = TextWrapping.Wrap;
-            statusText.ToolTip = L.Text("최근 확인") + " · " + stamp + (String.IsNullOrEmpty(presentation.Message) ? "" : "\n" + L.Text(presentation.Message)); meta.Children.Add(statusText); meta.Children.Add(reset); body.Children.Add(meta);
+            statusText.ToolTip = L.Text("최근 확인") + " · " + stamp + (String.IsNullOrEmpty(presentation.Message) ? "" : "\n" + L.Text(presentation.Message));
+            if (attention) { statusText.Margin = new Thickness(0); meta.Children.Add(new AttentionMark(statusText) { Margin = new Thickness(0,0,10,0) }); }
+            else meta.Children.Add(statusText);
+            meta.Children.Add(reset); body.Children.Add(meta);
             var card = DashboardCard(body); card.Padding = new Thickness(18,18,18,18); card.Margin = new Thickness(0);
-            if (state.HasUnknown) card.BorderBrush = BrushOf("#647070");
+            // A heavier border keeps the card distinct at a glance; padding absorbs the extra pixel.
+            if (attention) { card.BorderBrush = BrushOf("#252827"); card.BorderThickness = new Thickness(2); card.Padding = new Thickness(17); }
+            else if (state.HasUnknown) card.BorderBrush = BrushOf("#647070");
             string id = view.Id;
             var button = DashboardSurfaceButton(card,() => OpenDashboardService(id));
             button.Margin = new Thickness(0,0,12,12);

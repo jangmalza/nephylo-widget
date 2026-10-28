@@ -991,14 +991,10 @@ namespace UsageWidget
             }
             JournalDocument document = null;
             try { if (json != null) document = new JavaScriptSerializer { MaxJsonLength = MaximumBytes, RecursionLimit = 32 }.Deserialize<JournalDocument>(json); }
-            catch (ArgumentException) { }
-            catch (InvalidOperationException) { }
+            catch (Exception) { /* Valid JSON with a wrong field type or range is as unreadable as malformed JSON. */ }
             if (document == null || document.Version != 1)
             {
-                // Oversized, corrupt or newer-format history is kept under a new name
-                // so the next save cannot replace it. A failed move throws, and the
-                // app then keeps this run in memory instead of overwriting the file.
-                File.Move(path, Path.Combine(Path.GetDirectoryName(path), "usage-journal.unreadable-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".json"));
+                PreserveUnreadable();
                 return;
             }
             if (document.Options != null) options = CopyOptions(document.Options);
@@ -1032,6 +1028,25 @@ namespace UsageWidget
                 if (restored != null) analyses[restored.ServiceId + "\n" + restored.Label] = restored;
             }
             Prune(DateTimeOffset.UtcNow);
+        }
+
+        // Oversized, corrupt or newer-format history is kept under a new name so the
+        // next save cannot replace it. A failed move throws, and the app then keeps
+        // this run in memory instead of overwriting the file.
+        private void PreserveUnreadable()
+        {
+            string preserved = Path.Combine(Path.GetDirectoryName(path), "usage-journal.unreadable-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".json");
+            for (int attempt = 0; ; attempt++)
+            {
+                try { File.Move(path, preserved); return; }
+                catch (IOException error)
+                {
+                    // A scanner may hold the file without delete sharing just after the read.
+                    int code = error.HResult & 0xffff;
+                    if (attempt >= 4 || (code != 32 && code != 33)) throw;
+                    System.Threading.Thread.Sleep(50 * (attempt + 1));
+                }
+            }
         }
 
         private static bool ValidSource(string value) { return UsageSourceIdentity.IsValid(value); }

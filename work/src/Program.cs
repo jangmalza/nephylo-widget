@@ -101,6 +101,7 @@ namespace UsageWidget
         public System.Windows.Shapes.Path Chevron;
         public Button FoldButton;
         public TextBlock Badge;
+        internal AttentionMark BadgeMark;
         public TextBlock Time;
         public UsageSnapshot Snapshot;
         public DateTimeOffset? LastSuccess;
@@ -348,8 +349,10 @@ namespace UsageWidget
             view.Badge = T("확인 중",9,"#647070",FontWeights.Normal);
             view.Badge.VerticalAlignment = VerticalAlignment.Center; view.Badge.MaxWidth = 110; view.Badge.TextAlignment = TextAlignment.Right;
             view.Badge.TextWrapping = TextWrapping.NoWrap; view.Badge.TextTrimming = TextTrimming.CharacterEllipsis;
-            view.Badge.Margin = new Thickness(10,0,10,0);
-            Grid.SetColumn(view.Badge,1); heading.Children.Add(view.Badge);
+            // The mark mirrors the badge's visibility; Render decides when it is a warning.
+            view.BadgeMark = new AttentionMark(view.Badge,false) { Margin = new Thickness(10,0,10,0) };
+            view.BadgeMark.SetBinding(UIElement.VisibilityProperty,new System.Windows.Data.Binding("Visibility") { Source = view.Badge });
+            Grid.SetColumn(view.BadgeMark,1); heading.Children.Add(view.BadgeMark);
             view.Chevron = new System.Windows.Shapes.Path {
                 Data = Geometry.Parse("M 4 2 L 8 6 L 4 10"), Width = 12, Height = 12,
                 StrokeThickness = 1.4, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
@@ -382,7 +385,7 @@ namespace UsageWidget
             bool showStatus = showBusy || failed || view.Snapshot == null || presentation.Warning || UsageFreshness.Source(view) == "manual";
             if (!showBusy && !failed && view.Snapshot != null && presentation.Warning) view.Badge.Text = presentation.Label;
             view.Badge.Visibility = showStatus ? Visibility.Visible : Visibility.Collapsed;
-            view.Badge.Foreground = BrushOf(failed ? "#91501F" : "#647070");
+            view.BadgeMark.Active = !showBusy && (failed || presentation.Warning);
             string info = demo ? "예시 데이터 · 실제 API 호출 없음" : view.LastSuccess.HasValue ? "마지막 확인: " + view.LastSuccess.Value.ToLocalTime().ToString("MM/dd HH:mm:ss") : "아직 확인된 사용량이 없습니다.";
             if (view.Snapshot != null && !string.IsNullOrWhiteSpace(view.Snapshot.Note)) info += "\n" + view.Snapshot.Note;
             if (failed) info += "\n" + view.Error;
@@ -402,6 +405,7 @@ namespace UsageWidget
             }
 
             var rowKeys = new HashSet<string>();
+            var lowOptions = usageJournal == null ? null : usageJournal.Options;
             for (int index = 0; index < view.Snapshot.Rows.Count; index++)
             {
                 var row = view.Snapshot.Rows[index];
@@ -426,6 +430,9 @@ namespace UsageWidget
                     section.Children.Add(UsageMeter(view,rowKey,row.RemainingPercent.Value));
                 }
                 else HideUsageMeter(view,rowKey,row.RemainingPercent);
+                // Same threshold and units as the dashboard's low count and notifications.
+                bool low = !settings.CompactView && DashboardAssessment.IsLowRow(view,row,lowOptions,DateTimeOffset.Now);
+                if (low) section.Children.Add(new AttentionMark(T("잔량 부족",12,"#252827",FontWeights.SemiBold)) { Margin = new Thickness(0,6,0,0) });
                 if (!settings.CompactView && !String.IsNullOrWhiteSpace(row.DisplaySubtitle))
                     section.Children.Add(T(row.DisplaySubtitle,13,"#566369",FontWeights.Normal,new Thickness(0,4,0,0)));
                 else if (!settings.CompactView && row.Remaining.HasValue && row.Limit.HasValue)
@@ -437,7 +444,7 @@ namespace UsageWidget
                     reset.ToolTip = "초기화 예정: " + row.ResetsAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm zzz"); section.Children.Add(reset);
                 }
                 if (!settings.CompactView) {
-                    var insight = BuildInlineUsageInsight(view,row,DateTimeOffset.Now);
+                    var insight = BuildInlineUsageInsight(view,row,DateTimeOffset.Now,!low);
                     if (insight != null) section.Children.Add(insight);
                 }
                 if (!row.RemainingPercent.HasValue && !row.Remaining.HasValue && !unlimited && String.IsNullOrEmpty(row.DisplayValue))

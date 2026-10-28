@@ -132,6 +132,8 @@ namespace UsageWidget
         {
             internal Button Button;
             internal TextBlock Metric, Value, Reset, Warning;
+            internal Border WarningMark;
+            internal bool Low;
             internal Image Icon;
             internal Border ResetChip;
             internal CompactUsageSummary Summary;
@@ -248,7 +250,14 @@ namespace UsageWidget
             cell.ResetChip = new Border { Child = cell.Reset, Background = BrushOf("#F2F3EF"), CornerRadius = new CornerRadius(4),
                 Padding = new Thickness(5,2,5,2), Margin = new Thickness(9,0,0,0), VerticalAlignment = VerticalAlignment.Center };
             line.Children.Add(cell.ResetChip);
-            cell.Warning = CompactText("!",12,false); cell.Warning.Foreground = BrushOf("#91501F"); cell.Warning.Margin = new Thickness(5,0,0,0); line.Children.Add(cell.Warning);
+            // Same inverse attention style as the widget and dashboard marks. The
+            // circle follows the "!" text's visibility, which the fit logic toggles.
+            cell.Warning = CompactText("!",12,false); cell.Warning.Foreground = BrushOf("#FFFFFF"); cell.Warning.FontWeight = FontWeights.Bold;
+            cell.Warning.HorizontalAlignment = HorizontalAlignment.Center; cell.Warning.VerticalAlignment = VerticalAlignment.Center;
+            cell.WarningMark = new Border { Child = cell.Warning, Background = BrushOf("#252827"), CornerRadius = new CornerRadius(8),
+                Width = 16, Height = 16, Margin = new Thickness(6,0,0,0), VerticalAlignment = VerticalAlignment.Center };
+            cell.WarningMark.SetBinding(UIElement.VisibilityProperty,new System.Windows.Data.Binding("Visibility") { Source = cell.Warning });
+            line.Children.Add(cell.WarningMark);
             cell.Button.Content = line;
             cell.Button.Click += (s,e) => OpenCompactDetails(id,cell.Button);
             return cell;
@@ -270,14 +279,15 @@ namespace UsageWidget
                 if (!compactCells.TryGetValue(id,out cell)) compactCells[id] = cell = CreateCompactCell(id);
                 var view = ViewFor(id); var summary = CompactUsageSummary.From(view,now);
                 cell.Summary = summary;
+                cell.Low = summary.Row != null && DashboardAssessment.IsLowRow(view,summary.Row,usageJournal == null ? null : usageJournal.Options,now);
                 cell.Metric.Text = summary.Metric; cell.Metric.Visibility = String.IsNullOrEmpty(summary.Metric) ? Visibility.Collapsed : Visibility.Visible;
                 cell.Value.Text = summary.Value; cell.Reset.Text = "↻ " + L.Text(summary.Reset);
-                cell.Warning.Visibility = summary.Warning ? Visibility.Visible : Visibility.Collapsed;
+                cell.Warning.Visibility = summary.Warning || cell.Low ? Visibility.Visible : Visibility.Collapsed;
                 string details = CompactDetailsText(id,now);
                 var tip = cell.Button.ToolTip as ToolTip;
                 if (tip == null) cell.Button.ToolTip = tip = new ToolTip { Placement = PlacementMode.Bottom, MaxWidth = 430 };
                 tip.Content = new TextBlock { Text = CompactTooltipText(id,now), TextWrapping = TextWrapping.Wrap };
-                AutomationProperties.SetName(cell.Button,L.Text(UsageServiceName(id)) + " · " + L.Text(summary.Metric) + " " + L.Text(summary.Value) + " · " + L.Text("초기화") + " " + L.Text(summary.Reset) + (summary.Warning ? " · " + L.Text(summary.StateLabel) : ""));
+                AutomationProperties.SetName(cell.Button,L.Text(UsageServiceName(id)) + " · " + L.Text(summary.Metric) + " " + L.Text(summary.Value) + " · " + L.Text("초기화") + " " + L.Text(summary.Reset) + (summary.Warning ? " · " + L.Text(summary.StateLabel) : "") + (cell.Low ? " · " + L.Text("잔량 부족") : ""));
                 AutomationProperties.SetHelpText(cell.Button,details);
                 RestoreCompactCell(cell);
                 cell.Width = Math.Max(116,MeasureCompactCell(cell));
@@ -313,7 +323,7 @@ namespace UsageWidget
             cell.Icon.Width = cell.Icon.Height = 18; cell.Icon.Margin = new Thickness(0,0,7,0);
             cell.Metric.Visibility = String.IsNullOrEmpty(cell.Summary.Metric) ? Visibility.Collapsed : Visibility.Visible;
             cell.ResetChip.Visibility = cell.Summary.Reset == "—" ? Visibility.Collapsed : Visibility.Visible;
-            cell.Warning.Visibility = cell.Summary.Warning ? Visibility.Visible : Visibility.Collapsed;
+            cell.Warning.Visibility = cell.Summary.Warning || cell.Low ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private static string CompactDisplayValue(CompactUsageSummary summary)

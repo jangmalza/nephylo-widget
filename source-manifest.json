@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "sourceCommit": "406cf5a5d88c58109ac731d34b152d11ae5e3dad",
+  "sourceCommit": "2ba743d31b251e98fa83774ef8a3fd51025d929d",
   "includesWorkingTreeChanges": false,
   "gitHistoryIncluded": false,
   "releaseBinariesIncluded": false,
@@ -508,8 +508,8 @@
     },
     {
       "path": "work/src/CompactWidgetView.cs",
-      "bytes": 39055,
-      "sha256": "60d1f6d40fcd24b6748c23b7d273589ba002858f56516be76d9df12f7da49d9c"
+      "bytes": 40084,
+      "sha256": "a8f6958ee0b916e8d1ddf2e2dce884afcbf142459de999d441fab0e17164b556"
     },
     {
       "path": "work/src/ConnectionDiagnostics.cs",
@@ -573,8 +573,8 @@
     },
     {
       "path": "work/src/DashboardUi.cs",
-      "bytes": 54835,
-      "sha256": "628ac0b7afdb9b75b4453159c6e1f59ce26fe86da369fe3d641748864862f835"
+      "bytes": 56241,
+      "sha256": "8e55e502fd218039592aa8b1f555d69e8edbc6566161e4c359f100672657df30"
     },
     {
       "path": "work/src/ExtraSettings.cs",
@@ -583,8 +583,8 @@
     },
     {
       "path": "work/src/ExtraUi.cs",
-      "bytes": 62550,
-      "sha256": "2c7e623a1f9bcbd6d0b627964458e4be944575ecf10ab124eaf90cc749a58e54"
+      "bytes": 62537,
+      "sha256": "45a23b687ec3da30e815b5859c43e41b791d4c37b2da1dcac584d517be71a1e8"
     },
     {
       "path": "work/src/HiggsfieldUi.cs",
@@ -633,8 +633,8 @@
     },
     {
       "path": "work/src/Program.cs",
-      "bytes": 57646,
-      "sha256": "85d933f1997cf5cedac9619afe0974823d8e3b8e3c9d7456e923bfcfadd5d64d"
+      "bytes": 58443,
+      "sha256": "ee3831c163550cf43abca9a64e5f9e8f693228398867d0fa5812b9be219791a2"
     },
     {
       "path": "work/src/ProviderRefreshSchedule.cs",
@@ -683,8 +683,8 @@
     },
     {
       "path": "work/src/UsageAnalyticsUi.cs",
-      "bytes": 28504,
-      "sha256": "51488a17b52094774db138dbc48f697633d33bb07c5c7e8d4410cfce71cfcc97"
+      "bytes": 28847,
+      "sha256": "aae896135addf486777229d1e755730821aa853e03fc1c12c55a5a655ad085cf"
     },
     {
       "path": "work/src/UsageHistoryUi.cs",
@@ -703,8 +703,8 @@
     },
     {
       "path": "work/src/UsageTracking.cs",
-      "bytes": 76434,
-      "sha256": "333f4190a64c2f06f3bfc05da88cb109b59bb8061b31a77d0c2b4f712c6be849"
+      "bytes": 77061,
+      "sha256": "557aa3c34c3b73d3efad4472318aada675b9026af347be13965d921a535bebaf"
     },
     {
       "path": "work/src/UsageTrackingIntegration.cs",
@@ -748,8 +748,8 @@
     },
     {
       "path": "work/src/WidgetMenus.cs",
-      "bytes": 20018,
-      "sha256": "1b41bc857a96c465e82020761ccc04288778ef6d94cb7802052ec9a9703b0a48"
+      "bytes": 20136,
+      "sha256": "dcc327468d35e164f52ab50dec5d99aa9b01dda37a9cb288af0288094ecef845"
     },
     {
       "path": "work/src/WidgetMotion.cs",
@@ -768,8 +768,8 @@
     },
     {
       "path": "work/src/WidgetPresentation.cs",
-      "bytes": 15639,
-      "sha256": "d73d090bad7b5b6bd79874e8114e7cad838495b320a2339a499f1c7cf247228a"
+      "bytes": 17824,
+      "sha256": "6cf6a8344499a3858c7c5389509c8fdbb62ed54d6f314cda2a1b294e5fe51cb6"
     },
     {
       "path": "work/src/WidgetReleaseUi.cs",
@@ -1348,8 +1348,8 @@
     },
     {
       "path": "work/tests/usage-analytics-ui-tests.cs",
-      "bytes": 47207,
-      "sha256": "7fa067307ad7512f0fbb4644dba49af503c55cfcbc12561e7408be48c083b8e6"
+      "bytes": 47272,
+      "sha256": "91fe75d6bf9c30c1b42416651b3528ca36b98da627a789f8b71dbd2ad7a7212a"
     },
     {
       "path": "work/tests/usage-analytics-ui-tests.ps1",
@@ -1358,8 +1358,8 @@
     },
     {
       "path": "work/tests/usage-state-consistency-tests.cs",
-      "bytes": 12049,
-      "sha256": "e1b5e1e9c7c9a85baa5a4111b4f9e080a161d9e261a8238bfab39a91d1249882"
+      "bytes": 14989,
+      "sha256": "dccf1d2b3c2902f9b207a4c8a306f27c9d11f4c8872659d967cfbb7216363314"
     },
     {
       "path": "work/tests/usage-state-consistency-tests.ps1",
@@ -1368,8 +1368,8 @@
     },
     {
       "path": "work/tests/usage-tracking-tests.cs",
-      "bytes": 38307,
-      "sha256": "108d5f92b087dab11cf5617880813cbe6faaff3a598c316b7edd0d37592a8670"
+      "bytes": 40032,
+      "sha256": "559f9a6a6ea1f63a53a3fbfcdbe8878af87a123c520637885957a30c7dd370ed"
     },
     {
       "path": "work/tests/usage-tracking-tests.ps1",

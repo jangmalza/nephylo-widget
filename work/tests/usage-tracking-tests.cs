@@ -223,6 +223,27 @@ internal static class UsageTrackingTests
         File.WriteAllText(path, newer);
         Expect(new UsageJournal(directory, false).Options.LowThresholdPercent == 20, "Unknown schema is not misinterpreted.");
         Expect(Directory.GetFiles(directory, "usage-journal.unreadable-*.json").Count(file => File.ReadAllText(file) == newer) == 1, "A newer-format journal left by a rolled-back update is preserved.");
+        foreach (string mistyped in new[] {
+            "{\"Version\":99999999999}",
+            "{\"Version\":1,\"States\":[{\"ServiceId\":\"codex\",\"Label\":\"x\",\"Source\":\"api\",\"LowAlerted\":\"yes\"}]}",
+            "{\"Version\":1,\"Points\":[{\"ServiceId\":\"codex\",\"Label\":\"x\",\"Source\":\"api\",\"ResolutionMinutes\":\"x\"}]}" }) {
+            File.WriteAllText(path, mistyped);
+            bool constructed = true;
+            try { Expect(new UsageJournal(directory, false).GetHistory().Count == 0, "A mistyped journal starts empty."); }
+            catch (Exception) { constructed = false; }
+            Expect(constructed && !File.Exists(path) && Directory.GetFiles(directory, "usage-journal.unreadable-*.json").Count(file => File.ReadAllText(file) == mistyped) == 1, "Valid JSON with a wrong field type or range is preserved instead of failing every start: " + mistyped);
+        }
+        File.WriteAllText(path, "{held while moving");
+        using (var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+            // Reading is allowed, but the move needs delete sharing until the handle closes.
+            var release = new Thread(() => { Thread.Sleep(120); held.Dispose(); });
+            release.Start();
+            bool moved = true;
+            try { new UsageJournal(directory, false); }
+            catch (IOException) { moved = false; }
+            finally { release.Join(); }
+            Expect(moved && !File.Exists(path) && Directory.GetFiles(directory, "usage-journal.unreadable-*.json").Count(file => File.ReadAllText(file) == "{held while moving") == 1, "A briefly held unreadable journal is moved aside after a retry.");
+        }
         using (var large = new FileStream(path, FileMode.Create)) large.SetLength(16777217);
         Expect(new UsageJournal(directory, false).GetHistory().Count == 0 && !File.Exists(path), "An oversized journal starts empty.");
         Expect(Directory.GetFiles(directory, "usage-journal.unreadable-*.json").Count(file => new FileInfo(file).Length == 16777217) == 1, "An oversized journal is preserved instead of being replaced.");
