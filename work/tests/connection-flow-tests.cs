@@ -517,6 +517,7 @@ internal static class ConnectionFlowTests
             Check(SynchronizationContext.Current == null, "Async flow tests start without a UI synchronization context");
             CheckApiFlow().GetAwaiter().GetResult();
             CheckWpfFlow();
+            assertions += SupportDiagnosticsTests.Run();
             Console.WriteLine("Connection flow tests passed: " + assertions + " assertions. No live accounts, network requests, user settings or visible windows were used; isolated fixtures were removed.");
             return 0;
         }

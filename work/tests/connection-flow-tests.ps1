@@ -14,6 +14,7 @@ foreach ($reference in @('PresentationFramework.dll', 'PresentationCore.dll', 'W
 $arguments += @(Get-ChildItem -LiteralPath $sourceDirectory -Filter '*.cs' | ForEach-Object { $_.FullName })
 $arguments += Join-Path $testDirectory 'connection-flow-tests.cs'
 $arguments += Join-Path $testDirectory 'claude-quota-fixture.cs'
+$arguments += Join-Path $testDirectory 'support-diagnostics-tests.cs'
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Connection flow tests did not compile.' }
 & $testExecutable

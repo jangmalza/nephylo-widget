@@ -61,11 +61,13 @@ namespace UsageWidget
     {
         private void RefreshSucceeded(ProviderView view)
         {
+            if (view.Id != null) diagnosticFailures.Remove(view.Id);
             view.RefreshSchedule.Succeeded(DateTimeOffset.Now,settings.RefreshSeconds);
         }
 
         private void RefreshFailed(ProviderView view, Exception error)
         {
+            RememberDiagnosticFailure(view.Id,error);
             var connection = error as ConnectionException;
             view.RefreshSchedule.Failed(DateTimeOffset.Now,settings.RefreshSeconds,connection == null ? null : connection.RetryNotBefore);
         }

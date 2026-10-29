@@ -26,7 +26,8 @@ internal static class ClaudeQuotaTests
     {
         string root=Environment.GetEnvironmentVariable("NEPHYLO_CLAUDE_QUOTA_TEST"), mode=File.ReadAllText(Path.Combine(root,"mode.txt"));
         File.AppendAllText(Path.Combine(root,"pids.txt"),Process.GetCurrentProcess().Id+"\n");
-        if(args.Contains("--version")){Console.WriteLine(mode=="old"?"2.1.296 (Claude Code)":"2.1.304 (Claude Code)");return 0;}
+        File.AppendAllText(Path.Combine(root,"calls.txt"),(args.Contains("--version")?"version":args.Contains("--help")?"help":args.Contains("auth")?"auth":"query")+"\n");
+        if(args.Contains("--version")){Console.WriteLine(mode=="old"?"2.1.296 (Claude Code)":File.Exists(Path.Combine(root,"version.txt"))?File.ReadAllText(Path.Combine(root,"version.txt")):"2.1.304 (Claude Code)");return 0;}
         if(args.Contains("--help")){Console.WriteLine(mode=="missing-flag"?"--safe-mode":String.Join(" ",ClaudeQuotaService.Arguments(Guid.NewGuid().ToString("D"))));return 0;}
         string email=File.ReadAllText(Path.Combine(root,"account.txt"));
         if(args.Contains("auth")){
@@ -58,11 +59,13 @@ internal static class ClaudeQuotaTests
     {
         try{action();throw new Exception("Expected a quota failure: "+kind);}catch(ConnectionException error){Check((string)error.Data["ClaudeQuotaKind"]==kind,"Expected bounded failure "+kind+", got "+error.Data["ClaudeQuotaKind"]);Check(!error.Message.Contains("example.invalid")&&!error.Message.Contains("PRIVATE"),"Failure does not expose provider output or identity");}
     }
+    static int Calls(string root,string kind=null) { return File.ReadAllLines(Path.Combine(root,"calls.txt")).Count(line=>kind==null||line==kind); }
     internal static int Run(string parent)
     {
         string root=Path.Combine(parent,"quota");Directory.CreateDirectory(root);
         string priorConfig=ClaudeUsageService.ConfigDirectoryOverride;
         int priorTimeout=ClaudeQuotaService.TimeoutMilliseconds;
+        var priorClock=ClaudeQuotaService.UtcNowOverride;
         try{
             var now=DateTimeOffset.UtcNow;string fingerprint=new string('a',64);
             var parsed=ClaudeQuotaService.Parse(Usage(now),now,fingerprint);
@@ -91,23 +94,85 @@ internal static class ClaudeQuotaTests
             Check(!info.EnvironmentVariables.ContainsKey("ANTHROPIC_API_KEY")&&!info.EnvironmentVariables.ContainsKey("ANTHROPIC_AUTH_TOKEN")&&!info.EnvironmentVariables.ContainsKey("CLAUDE_CODE_SDK_URL"),"API credentials and other hosts' transports are not inherited");
             ClaudeQuotaService.ConfigureEnvironment(info,"",Path.Combine(root,"custom-profile"));
             Check(info.EnvironmentVariables["CLAUDE_CONFIG_DIR"]==Path.Combine(root,"custom-profile"),"Custom profile is pinned to the selected environment");
-            ClaudeUsageService.ConfigDirectoryOverride=priorConfig;
+            // The fake CLI owns all process I/O; use real target resolution so two
+            // explicit profiles cannot be collapsed by the bridge test override.
+            ClaudeUsageService.ConfigDirectoryOverride=null;
 
             File.WriteAllText(Path.Combine(root,"account.txt"),"fixture@example.invalid");
+            string activeExecutable=Assembly.GetExecutingAssembly().Location;
             ClaudeQuotaService.StartInfoOverride=(distribution,directory,args)=>{
                 File.AppendAllText(Path.Combine(root,"targets.txt"),distribution+"|"+directory+"\n");
-                var start=new ProcessStartInfo(Assembly.GetExecutingAssembly().Location,"--fake-quota "+String.Join(" ",args.Select(ClaudeQuotaService.Quote))){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
+                var start=new ProcessStartInfo(activeExecutable,"--fake-quota "+String.Join(" ",args.Select(ClaudeQuotaService.Quote))){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
                 start.EnvironmentVariables["NEPHYLO_CLAUDE_QUOTA_TEST"]=root;return start;
             };
             File.WriteAllText(Path.Combine(root,"mode.txt"),"normal");
             var service=new ClaudeQuotaService();var first=service.ReadAsync("","",CancellationToken.None);var second=service.ReadAsync("","",CancellationToken.None);Task.WaitAll(first,second);
             Check(first.Result.Snapshot.Rows[0].RemainingPercent==75&&second.Result.AccountFingerprint==first.Result.AccountFingerprint,"Concurrent readers share a verified account result");
             Check(File.ReadAllLines(Path.Combine(root,"query-count.txt")).Length==1,"Rapid concurrent refresh performs only one quota request");
+            Check(Calls(root,"version")==1&&Calls(root,"help")==1&&Calls(root,"auth")==3,"Concurrent cached reads reuse capabilities but still verify the current account");
+            int metadataBefore=Calls(root);
+            Check(service.KnownVersion("","")=="2.1.304"&&service.KnownVersion("",Path.Combine(root,"other-profile"))==null,"Diagnostic version belongs only to its observed profile");
+            Check(Calls(root)==metadataBefore,"Reading diagnostic version does not launch a process");
             string original=first.Result.AccountFingerprint;
             File.WriteAllText(Path.Combine(root,"account.txt"),"other@example.invalid");var next=service.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult();
             Check(next.AccountFingerprint!=original,"Account switch invalidates a fresh cache");
             File.WriteAllText(Path.Combine(root,"account.txt"),"fixture@example.invalid");
             Check(service.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult().AccountFingerprint==original&&File.ReadAllLines(Path.Combine(root,"query-count.txt")).Length==3,"A to B to A requires a new verified request");
+            Check(Calls(root,"version")==1&&Calls(root,"help")==1,"Account changes never require duplicate capability probes for the unchanged CLI");
+
+            var clock=DateTimeOffset.UtcNow;ClaudeQuotaService.UtcNowOverride=()=>clock;
+            var optimized=new ClaudeQuotaService();int calls=Calls(root);
+            optimized.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==5,"Cold Windows read performs complete capability and identity checks");
+            clock=clock.AddSeconds(20);calls=Calls(root);int authCalls=Calls(root,"auth");
+            var warm=optimized.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==3&&Calls(root,"auth")-authCalls==2,"Warm quota refresh uses three children and keeps identity checks before and after the query");
+            calls=Calls(root);var rapid=optimized.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==1&&rapid.ObservedAt==warm.ObservedAt,"Rapid read checks identity once and preserves the observation timestamp");
+            clock=clock.AddMinutes(6);calls=Calls(root);optimized.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==5,"Capability expiry performs a full revalidation");
+            clock=clock.AddMinutes(-6);int versions=Calls(root,"version"),helps=Calls(root,"help");
+            optimized.ReadAsync("","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root,"version")==versions+1&&Calls(root,"help")==helps+1,"A backward clock cannot extend capability validity");
+            string profile=Path.Combine(root,"second-profile");versions=Calls(root,"version");
+            optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root,"version")==versions+1,"Profile changes do not inherit another target's capabilities");
+            activeExecutable=Path.Combine(root,"replacement.exe");File.Copy(Assembly.GetExecutingAssembly().Location,activeExecutable);
+            versions=Calls(root,"version");optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root,"version")==versions+1,"A changed executable path revalidates capabilities");
+            File.SetLastWriteTimeUtc(activeExecutable,DateTime.UtcNow.AddSeconds(10));versions=Calls(root,"version");
+            optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root,"version")==versions+1,"Replacing the executable at the same path invalidates capabilities");
+            File.SetLastWriteTimeUtc(activeExecutable,DateTime.UtcNow.AddSeconds(20));File.WriteAllText(Path.Combine(root,"mode.txt"),"old");
+            ExpectFailure(()=>optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult(),"version");
+            Check(optimized.KnownVersion("",profile)=="2.1.296","Unsupported numeric version remains available for diagnosis");
+            File.WriteAllText(Path.Combine(root,"mode.txt"),"normal");calls=Calls(root);
+            optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==5,"A failed capability check cannot leave a reusable quota or capability cache");
+            clock=clock.AddSeconds(20);File.WriteAllText(Path.Combine(root,"mode.txt"),"wrong-id");
+            ExpectFailure(()=>optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult(),"response");
+            File.WriteAllText(Path.Combine(root,"mode.txt"),"normal");calls=Calls(root);
+            optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==5,"Protocol failure invalidates capabilities so the next attempt rechecks support");
+            File.WriteAllText(Path.Combine(root,"mode.txt"),"logout");
+            ExpectFailure(()=>optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult(),"authentication");
+            File.WriteAllText(Path.Combine(root,"mode.txt"),"normal");calls=Calls(root);
+            optimized.ReadAsync("",profile,CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==5,"Logging back in cannot reuse a pre-logout result");
+            activeExecutable=Assembly.GetExecutingAssembly().Location;
+            var wslCached=new ClaudeQuotaService();wslCached.ReadAsync("Fixture Distro","",CancellationToken.None).GetAwaiter().GetResult();
+            calls=Calls(root);helps=Calls(root,"help");
+            wslCached.ReadAsync("Fixture Distro","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==2&&Calls(root,"help")==helps,"WSL checks CLI version and identity on every read but caches unchanged help");
+            clock=clock.AddSeconds(20);calls=Calls(root);
+            wslCached.ReadAsync("Fixture Distro","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root)-calls==4,"Warm WSL refresh retains version and both identity checks");
+            File.WriteAllText(Path.Combine(root,"version.txt"),"2.1.305 (Claude Code)");helps=Calls(root,"help");
+            wslCached.ReadAsync("Fixture Distro","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root,"help")==helps+1&&wslCached.KnownVersion("Fixture Distro","")=="2.1.305","Changed WSL CLI version immediately rechecks supported options");
+            helps=Calls(root,"help");wslCached.ReadAsync("Other Fixture Distro","",CancellationToken.None).GetAwaiter().GetResult();
+            Check(Calls(root,"help")==helps+1,"WSL distributions do not share a capability cache");
+            File.Delete(Path.Combine(root,"version.txt"));ClaudeQuotaService.UtcNowOverride=priorClock;
             var wsl=new ClaudeQuotaService().ReadAsync("Fixture Distro","",CancellationToken.None).GetAwaiter().GetResult();
             Check(wsl.HasQuotaData&&File.ReadAllText(Path.Combine(root,"targets.txt")).Contains("Fixture Distro|"),"WSL selected target stays separate from Windows");
             foreach(var pair in new[]{"logout:authentication","api:authentication","no-email:authentication","old:version","missing-flag:version","child-account:account","provider:account","permission:account","wrong-session:response","wrong-id:response","unexpected-frame:response","oversized:response","unavailable:unavailable","switch-after:account"}){
@@ -132,6 +197,6 @@ internal static class ClaudeQuotaTests
             foreach(string line in File.ReadAllLines(Path.Combine(root,"arguments.ndjson"))){var args=Json.Deserialize<string[]>(line);Check(args.Contains("--no-session-persistence")&&args.Contains("--restricted")&&args[Array.IndexOf(args,"--tools")+1]==""&&args[Array.IndexOf(args,"--permission-mode")+1]=="dontAsk"&&args[Array.IndexOf(args,"--setting-sources")+1]=="","Owned child has no tools, user settings or persisted session");}
             foreach(string line in File.ReadAllLines(Path.Combine(root,"pids.txt"))){bool alive;try{using(var p=Process.GetProcessById(Int32.Parse(line)))alive=!p.HasExited;}catch(ArgumentException){alive=false;}Check(!alive,"Every owned quota child has exited, including failures and timeout");}
             return checks;
-        }finally{ClaudeQuotaService.StartInfoOverride=null;ClaudeQuotaService.TimeoutMilliseconds=priorTimeout;ClaudeUsageService.ConfigDirectoryOverride=priorConfig;}
+        }finally{ClaudeQuotaService.StartInfoOverride=null;ClaudeQuotaService.TimeoutMilliseconds=priorTimeout;ClaudeQuotaService.UtcNowOverride=priorClock;ClaudeUsageService.ConfigDirectoryOverride=priorConfig;}
     }
 }

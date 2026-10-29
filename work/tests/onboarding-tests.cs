@@ -108,6 +108,10 @@ internal static class OnboardingTests
             selector.SelectedIndex = 6; Press(guide,"다음");
             Check(Elements<TextBlock>(guide).Any(text => text.Text.Contains("‘힉스필드 로그인’")),"Higgsfield guidance names the exact sign-in action in the connection editor");
             Press(guide,"이전"); selector = Elements<ListBox>(guide).Single();
+            selector.SelectedIndex = 3; Press(guide,"다음");
+            Check(Elements<TextBlock>(guide).Any(text => text.Text.Contains("‘잔여량 조회’") && text.Text.Contains("대화 없이") && text.Text.Contains("2.1.304")),"Claude onboarding directs a new user to the supported query without requiring a model response");
+            Check(!Elements<TextBlock>(guide).Any(text => text.Text.Contains("수신 확인") || text.Text.Contains("다음 응답을 받은 후")),"The new-user guide does not send the user to the retired receipt action");
+            Press(guide,"이전"); selector = Elements<ListBox>(guide).Single();
             selector.SelectedIndex = 4;
             Check(Field<ServicePlan>(window,"servicePlan").ActiveServiceId == prior,"Selecting Gemini leaves the current Free service unchanged");
             Press(guide,"다음");
@@ -140,6 +144,7 @@ internal static class OnboardingTests
             Check(guide.Title == "Nephylo · Connection guide" && Elements<TextBlock>(guide).Any(text => text.Text == "Connect your first service"),"Changing language refreshes an already-open guide header and title");
             Field<OnboardingState>(window,"onboardingState").ServiceId = "claude"; Call(window,"RenderOnboarding");
             Check(Elements<TextBlock>(guide).Any(text => text.Text.Contains("Free, API-key and web users")),"English Claude onboarding explains the Free/API limitation before connecting");
+            Check(Elements<TextBlock>(guide).Any(text => text.Text.Contains("Check remaining usage") && text.Text.Contains("without sending a conversation")),"English guidance names the current query action and does not require a conversation");
             guide.Width = 390; guide.Height = 440; guide.Measure(new Size(390,440)); guide.Arrange(new Rect(0,0,390,440));
             Check(Elements<ScrollViewer>(guide).Any(view => view.VerticalScrollBarVisibility == ScrollBarVisibility.Auto),"Short/high-DPI work areas keep instructions scrollable and footer separate");
             guide.Close(); L.Language = "ko";

@@ -21,6 +21,15 @@ namespace UsageWidget
         readonly SemaphoreSlim gate = new SemaphoreSlim(1, 1);
         ClaudeUsageResult cached;
         string cachedTarget;
+        sealed class Capabilities
+        {
+            internal string Target, ExecutableStamp;
+            internal Version Version;
+            internal DateTimeOffset CheckedAt;
+        }
+        volatile Capabilities capabilities, lastVersion;
+        internal static Func<DateTimeOffset> UtcNowOverride = null;
+        static DateTimeOffset Now() { var clock = UtcNowOverride; return clock == null ? DateTimeOffset.UtcNow : clock(); }
         internal static Func<string, string, string[], ProcessStartInfo> StartInfoOverride = null;
         internal static Func<string, string, CancellationToken, Task<ClaudeUsageResult>> ReadOverride = null;
         internal static int TimeoutMilliseconds = 30000;
@@ -37,20 +46,16 @@ namespace UsageWidget
 
         ClaudeUsageResult Read(string distribution, string directory, CancellationToken cancellation)
         {
-            string target = String.IsNullOrEmpty(distribution) ? "win:" + ClaudeUsageService.ResolveWindowsConfigDirectory(directory) : ClaudeUsageService.GetSourceId(distribution);
+            string target = Target(distribution, directory);
             using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation)) {
                 deadline.CancelAfter(TimeoutMilliseconds);
                 var token = deadline.Token;
                 string temporary = Path.Combine(Path.GetTempPath(), "NephyloClaudeQuota-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(temporary);
                 try {
-                    string version = Probe(distribution, directory, temporary, new[] { "--version" }, token);
-                    var match = Regex.Match(version ?? "", @"^(\d+)\.(\d+)\.(\d+)"); Version parsed;
-                    if (!match.Success || !Version.TryParse(match.Value, out parsed) || parsed < new Version(2, 1, 304)) throw Problem("version");
-                    string help = Probe(distribution, directory, temporary, new[] { "--help" }, token);
-                    foreach (string flag in RequiredFlags) if (!help.Contains(flag)) throw Problem("version");
+                    EnsureCapabilities(distribution, directory, temporary, target, token);
                     var before = Account(Probe(distribution, directory, temporary, new[] { "--safe-mode", "--setting-sources", "", "auth", "status", "--json" }, token));
-                    var now = DateTimeOffset.UtcNow;
+                    var now = Now();
                     // Recheck identity on every read, including rapid repeated clicks.
                     if (cached != null && cachedTarget == target && cached.AccountFingerprint == before.Fingerprint && now >= cached.ObservedAt && now - cached.ObservedAt < TimeSpan.FromSeconds(15)
                         && cached.Snapshot.Rows.All(row => !row.ResetsAt.HasValue || row.ResetsAt.Value > now)) return cached;
@@ -74,13 +79,62 @@ namespace UsageWidget
                     var after = Account(Probe(distribution, directory, temporary, new[] { "--safe-mode", "--setting-sources", "", "auth", "status", "--json" }, token));
                     if (before.Fingerprint != after.Fingerprint) throw Problem("account");
                     token.ThrowIfCancellationRequested();
-                    var result = Parse(response, DateTimeOffset.UtcNow, before.Fingerprint);
+                    var result = Parse(response, Now(), before.Fingerprint);
                     cachedTarget = target; cached = result; return result;
-                } catch (OperationCanceledException) { cancellation.ThrowIfCancellationRequested(); throw Problem("timeout"); }
-                catch (ConnectionException) { if (token.IsCancellationRequested) { cancellation.ThrowIfCancellationRequested(); throw Problem("timeout"); } throw; }
-                catch { if (token.IsCancellationRequested) { cancellation.ThrowIfCancellationRequested(); throw Problem("timeout"); } throw Problem("response"); }
+                } catch (OperationCanceledException) { InvalidateCaches(); cancellation.ThrowIfCancellationRequested(); throw Problem("timeout"); }
+                catch (ConnectionException) { InvalidateCaches(); if (token.IsCancellationRequested) { cancellation.ThrowIfCancellationRequested(); throw Problem("timeout"); } throw; }
+                catch { InvalidateCaches(); if (token.IsCancellationRequested) { cancellation.ThrowIfCancellationRequested(); throw Problem("timeout"); } throw Problem("response"); }
                 finally { try { Directory.Delete(temporary, false); } catch { } }
             }
+        }
+
+        static string Target(string distribution, string directory)
+        { return String.IsNullOrEmpty(distribution) ? "win:" + ClaudeUsageService.ResolveWindowsConfigDirectory(directory) : ClaudeUsageService.GetSourceId(distribution); }
+
+        // A diagnostic reads already observed numeric metadata, never launches a CLI.
+        internal string KnownVersion(string distribution, string directory)
+        {
+            var known = lastVersion;
+            try { return known != null && known.Target == Target(distribution, directory) ? known.Version.ToString(3) : null; }
+            catch { return null; }
+        }
+
+        void InvalidateCaches() { capabilities = null; cached = null; }
+
+        static string ExecutableStamp(string executable)
+        {
+            try {
+                var file = new FileInfo(executable);
+                return file.Exists ? file.FullName.ToUpperInvariant() + "|" + file.Length.ToString(CultureInfo.InvariantCulture) + "|" + file.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture) : null;
+            } catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
+            catch (ArgumentException) { return null; }
+        }
+
+        void EnsureCapabilities(string distribution, string directory, string home, string target, CancellationToken token)
+        {
+            var now = Now();
+            var previous = capabilities;
+            var versionArguments = new[] { "--version" };
+            var versionInfo = CreateInfo(distribution, directory, home, versionArguments);
+            bool windows = String.IsNullOrEmpty(distribution);
+            string stamp = windows ? ExecutableStamp(versionInfo.FileName) : null;
+            bool fresh = previous != null && previous.Target == target && now >= previous.CheckedAt && now - previous.CheckedAt < TimeSpan.FromMinutes(5);
+            // Local executable replacement, target changes and expiry invalidate the check.
+            // Account checks below remain mandatory even when metadata is cached.
+            if (windows && fresh && stamp != null && previous.ExecutableStamp == stamp) return;
+            lastVersion = null;
+            string version = Probe(versionInfo, versionArguments, token);
+            var match = Regex.Match(version ?? "", @"^(\d+)\.(\d+)\.(\d+)"); Version parsed;
+            if (!match.Success || !Version.TryParse(match.Value, out parsed)) throw Problem("version");
+            lastVersion = new Capabilities { Target = target, Version = parsed, CheckedAt = now };
+            if (parsed < new Version(2, 1, 304)) throw Problem("version");
+            // WSL executable metadata is not available locally: check its version every
+            // time, reusing only the help result for this distribution/profile/version.
+            if (!windows && fresh && previous.Version.Equals(parsed)) return;
+            string help = Probe(distribution, directory, home, new[] { "--help" }, token);
+            foreach (string flag in RequiredFlags) if (!help.Contains(flag)) throw Problem("version");
+            capabilities = new Capabilities { Target = target, ExecutableStamp = stamp, Version = parsed, CheckedAt = now };
         }
 
         static readonly string[] RequiredFlags = { "--safe-mode", "--restricted", "--tools", "--disallowedTools", "--permission-mode", "--permission-prompts", "--strict-mcp-config", "--mcp-config", "--setting-sources", "--settings", "--disable-slash-commands", "--no-chrome", "--input-format", "--output-format", "--session-id", "--no-session-persistence" };
@@ -134,14 +188,25 @@ namespace UsageWidget
         }
         static Process Start(string distribution, string directory, string home, string[] arguments)
         {
+            return Start(CreateInfo(distribution, directory, home, arguments));
+        }
+        static ProcessStartInfo CreateInfo(string distribution, string directory, string home, string[] arguments)
+        {
             var factory = StartInfoOverride;
-            var info = factory == null ? Info(distribution, directory, home, arguments) : factory(distribution, directory, arguments);
+            return factory == null ? Info(distribution, directory, home, arguments) : factory(distribution, directory, arguments);
+        }
+        static Process Start(ProcessStartInfo info)
+        {
             try { var process = Process.Start(info); process.StandardInput.AutoFlush = true; return process; }
             catch { throw Problem("installation"); }
         }
         static string Probe(string distribution, string directory, string home, string[] args, CancellationToken cancellation)
         {
-            using (var child = Start(distribution, directory, home, args))
+            return Probe(CreateInfo(distribution, directory, home, args), args, cancellation);
+        }
+        static string Probe(ProcessStartInfo info, string[] args, CancellationToken cancellation)
+        {
+            using (var child = Start(info))
             using (cancellation.Register(() => Kill(child))) {
                 var errors = Task.Run(() => Drain(child.StandardError));
                 try {

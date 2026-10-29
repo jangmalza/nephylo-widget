@@ -98,6 +98,7 @@ namespace UsageWidget
 
         private void FeedbackIssue(ConnectionFeedback target, string id, Exception error)
         {
+            RememberDiagnosticFailure(id,error);
             var issue = ConnectionDiagnostics.For(id,error);
             Feedback(target,issue.Title,issue.Message,true);
             if (!String.IsNullOrEmpty(issue.ActionUrl)) {

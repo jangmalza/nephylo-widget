@@ -79,6 +79,7 @@ namespace UsageWidget
             updateInstallButton.Click += async (s,e) => await ApplyPreparedUpdateAsync(true);
             actions.Children.Add(updateInstallButton); body.Children.Add(actions);
             body.Children.Add(SmallAction("다운로드 페이지 ↗",() => OpenOfficialPage(WidgetWebsite + "#download")));
+            body.Children.Add(MakeDiagnosticsControls(null));
             var options = new LocalizedStackPanel();
             options.Children.Add(ManagementDescription("다운로드한 업데이트의 배포 서명과 파일 무결성을 검증합니다. Windows 코드 서명 인증서는 아직 적용되지 않았습니다.",new Thickness(0,0,0,8)));
             AddInstallationControl(options,updateStatusText);

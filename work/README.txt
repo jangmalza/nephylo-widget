@@ -4,7 +4,7 @@
 
 여러 AI 서비스의 잔여량과 초기화 시각을 Windows 바탕화면에서 확인하는 무료 오픈소스 위젯입니다. Nephylo 가입이나 결제 없이 모든 기능을 사용할 수 있습니다.
 
-**버전 안내:** 이 README는 **1.25.33 소스** 기준입니다. **1.25.33**부터 위젯 전용 설치 파일에 Claude 직접 잔여량 조회를 포함합니다. 기존 공개 1.25.22는 자동 업데이트하거나 공식 설치 파일로 업데이트할 수 있으며, 이전 버전의 응답 수신 안내도 아래에 보존합니다.
+**버전 안내:** 이 README는 **1.25.34 소스** 기준입니다. **1.25.33**부터 위젯 전용 설치 파일에 Claude 직접 잔여량 조회를 포함합니다. 기존 공개 1.25.22는 자동 업데이트하거나 공식 설치 파일로 업데이트할 수 있으며, 이전 버전의 응답 수신 안내도 아래에 보존합니다.
 
 **[Windows 설치 파일 다운로드](https://nephylo.com/downloads/Nephylo-Setup.exe)** · [홈페이지](https://nephylo.com/) · [개발 후원](https://github.com/sponsors/jangmalza) · [English](#english) · [MIT License](LICENSE)
 
@@ -148,7 +148,7 @@ Nephylo는 각 AI 서비스의 공식 제품이 아닙니다. 제공자가 공�
 
 ## 개발·기여
 
-현재 소스 버전: **1.25.33** · C# / WPF / .NET Framework 4.8
+현재 소스 버전: **1.25.34** · C# / WPF / .NET Framework 4.8
 
 <details>
 <summary><strong>소스에서 빌드하고 테스트하기</strong></summary>
@@ -187,7 +187,7 @@ Nephylo 코드·문서·자체 아이콘은 [MIT License](LICENSE)입니다. 수
 
 ## English
 
-**Version scope:** this README describes source **1.25.33**. The widget-only **1.25.33** release includes direct Claude quota queries. Earlier public 1.25.22 installations can use automatic updates or the official setup file; legacy receipt instructions are retained below.
+**Version scope:** this README describes source **1.25.34**. The widget-only **1.25.33** release includes direct Claude quota queries. Earlier public 1.25.22 installations can use automatic updates or the official setup file; legacy receipt instructions are retained below.
 
 **Nephylo is a free, open-source Windows widget for AI service quotas, remaining credits and reset times.** No Nephylo account or payment is required. Provider authentication, subscriptions and API fees are separate.
 

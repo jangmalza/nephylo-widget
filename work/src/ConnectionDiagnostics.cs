@@ -14,6 +14,7 @@ namespace UsageWidget
         public string Message;
         public string ActionLabel;
         public string ActionUrl;
+        internal string DiagnosticCode;
     }
 
     public sealed class ConnectionException : InvalidOperationException
@@ -60,9 +61,9 @@ namespace UsageWidget
             }
         }
 
-        private static ConnectionIssue Make(string title, string message, string label = null, string url = null)
+        private static ConnectionIssue Make(string title, string message, string label = null, string url = null, string code = null)
         {
-            return new ConnectionIssue { Title = title, Message = message, ActionLabel = label, ActionUrl = url };
+            return new ConnectionIssue { Title = title, Message = message, ActionLabel = label, ActionUrl = url, DiagnosticCode = code };
         }
 
         public static ConnectionIssue For(string serviceId, Exception error)
@@ -121,6 +122,16 @@ namespace UsageWidget
 
         public static ConnectionIssue Http(string serviceId, int status, string body = null)
         {
+            var issue = HttpIssue(serviceId,status,body);
+            string providerCode = Id(serviceId) == "eleven" ? ElevenCode(body) : null;
+            if (providerCode == "missing_permissions" || providerCode == "insufficient_permissions" || providerCode == "workspace_access_denied") issue.DiagnosticCode = "permission";
+            else if (providerCode == "invalid_api_key" || providerCode == "missing_api_key") issue.DiagnosticCode = "authentication";
+            else if (issue.DiagnosticCode == null) issue.DiagnosticCode = status == 401 ? "authentication" : status == 403 ? "permission" : status == 429 ? "rate-limit" : status >= 500 && status <= 599 ? "network" : "response";
+            return issue;
+        }
+
+        private static ConnectionIssue HttpIssue(string serviceId, int status, string body)
+        {
             var id = Id(serviceId);
             if (id == "eleven")
             {
@@ -171,39 +182,39 @@ namespace UsageWidget
 
         public static ConnectionIssue Timeout(string serviceId)
         {
-            return Make("응답을 기다리다 시간이 초과됐어요", Name(serviceId) + " 응답 시간이 초과되었습니다.\n1. 인터넷 연결과 VPN·프록시 상태를 확인해 주세요.\n2. 잠시 후 다시 연결을 확인해 주세요.");
+            return Make("응답을 기다리다 시간이 초과됐어요", Name(serviceId) + " 응답 시간이 초과되었습니다.\n1. 인터넷 연결과 VPN·프록시 상태를 확인해 주세요.\n2. 잠시 후 다시 연결을 확인해 주세요.",code:"timeout");
         }
 
         public static ConnectionIssue Network(string serviceId)
         {
-            return Make("인터넷 연결을 확인해 주세요", Name(serviceId) + "에 연결할 수 없습니다.\n1. 인터넷 연결과 VPN·프록시 상태를 확인해 주세요.\n2. 회사 네트워크라면 서비스 접속이 허용되는지 확인한 뒤 다시 시도해 주세요.");
+            return Make("인터넷 연결을 확인해 주세요", Name(serviceId) + "에 연결할 수 없습니다.\n1. 인터넷 연결과 VPN·프록시 상태를 확인해 주세요.\n2. 회사 네트워크라면 서비스 접속이 허용되는지 확인한 뒤 다시 시도해 주세요.",code:"network");
         }
 
         public static ConnectionIssue Malformed(string serviceId, string message = null)
         {
-            return Make("사용량 응답을 확인하지 못했어요", message ?? (Name(serviceId) + " 사용량 응답을 읽을 수 없습니다. 잠시 후 다시 확인하고, 문제가 계속되면 위젯과 연결 도구를 최신 버전으로 업데이트해 주세요."));
+            return Make("사용량 응답을 확인하지 못했어요", message ?? (Name(serviceId) + " 사용량 응답을 읽을 수 없습니다. 잠시 후 다시 확인하고, 문제가 계속되면 위젯과 연결 도구를 최신 버전으로 업데이트해 주세요."),code:"response");
         }
 
         public static ConnectionIssue CodexMissing(bool invalidPath = false)
         {
             return Make(invalidPath ? "Codex 실행 경로를 확인해 주세요" : "Codex를 설치해 주세요",
                 invalidPath ? "선택한 Codex 실행 파일을 찾거나 시작할 수 없습니다. 고급 설정에서 실제 codex.exe 파일을 선택하거나 경로를 비워 자동 검색해 주세요."
-                : "Codex Windows 앱 또는 CLI를 찾지 못했습니다. 같은 Windows 계정에 설치했는지 확인한 뒤 다시 시도해 주세요. 이미 설치했다면 고급 설정에서 codex.exe를 직접 선택할 수 있어요.", "Codex 설치 안내 열기", CodexGuide);
+                : "Codex Windows 앱 또는 CLI를 찾지 못했습니다. 같은 Windows 계정에 설치했는지 확인한 뒤 다시 시도해 주세요. 이미 설치했다면 고급 설정에서 codex.exe를 직접 선택할 수 있어요.", "Codex 설치 안내 열기", CodexGuide,"installation");
         }
 
         public static ConnectionIssue CodexLogin()
         {
-            return Make("ChatGPT 로그인이 필요해요", "서비스 연결에서 '브라우저로 로그인'을 누르고 로그인을 마쳐 주세요. 완료되면 사용량을 자동으로 확인합니다. API 키 로그인은 Codex 구독 한도를 제공하지 않습니다.");
+            return Make("ChatGPT 로그인이 필요해요", "서비스 연결에서 '브라우저로 로그인'을 누르고 로그인을 마쳐 주세요. 완료되면 사용량을 자동으로 확인합니다. API 키 로그인은 Codex 구독 한도를 제공하지 않습니다.",code:"authentication");
         }
 
         public static ConnectionIssue CodexLoginFailed()
         {
-            return Make("Codex 로그인이 완료되지 않았어요", "브라우저 인증이 취소되거나 실패했습니다. '브라우저로 로그인'을 다시 눌러 완료해 주세요. 기존 위젯 설정과 이력은 유지됩니다.");
+            return Make("Codex 로그인이 완료되지 않았어요", "브라우저 인증이 취소되거나 실패했습니다. '브라우저로 로그인'을 다시 눌러 완료해 주세요. 기존 위젯 설정과 이력은 유지됩니다.",code:"authentication");
         }
 
         public static ConnectionIssue CodexUnsupported()
         {
-            return Make("Codex를 업데이트해 주세요", "이 Codex 버전의 사용량 조회 연결을 확인할 수 없습니다. Codex 앱 또는 CLI를 최신 버전으로 업데이트한 뒤 다시 연결해 주세요.", "Codex 업데이트 안내 열기", CodexGuide);
+            return Make("Codex를 업데이트해 주세요", "이 Codex 버전의 사용량 조회 연결을 확인할 수 없습니다. Codex 앱 또는 CLI를 최신 버전으로 업데이트한 뒤 다시 연결해 주세요.", "Codex 업데이트 안내 열기", CodexGuide,"version");
         }
 
         public static ConnectionIssue CodexDisconnected()

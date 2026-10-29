@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "sourceCommit": "2ba743d31b251e98fa83774ef8a3fd51025d929d",
+  "sourceCommit": "613035f883af4f95d71a45eb1e1e62e7941e57dd",
   "includesWorkingTreeChanges": false,
   "gitHistoryIncluded": false,
   "releaseBinariesIncluded": false,
@@ -119,7 +119,7 @@
     {
       "path": "docs/RELEASING.md",
       "bytes": 2067,
-      "sha256": "2df827f80aae60ae2a646975fb415662d17a30f2da15b9f449cfbbae03115137"
+      "sha256": "46f8b02e606bbc87478507ea7dab5ed0c8110a148cfd81085146d28bafb64aba"
     },
     {
       "path": "LICENSE",
@@ -129,7 +129,7 @@
     {
       "path": "README.md",
       "bytes": 23292,
-      "sha256": "d4f3c31fefdfe259083548b388e18e17fa2bed8adc0529c2497c1874da6ee929"
+      "sha256": "38b508075857c7c2cddd2f49ecfbadfe6e933b449a3ea327c51be96b68111c17"
     },
     {
       "path": "scripts/check-public-source.mjs",
@@ -444,7 +444,7 @@
     {
       "path": "work/README.txt",
       "bytes": 23292,
-      "sha256": "d4f3c31fefdfe259083548b388e18e17fa2bed8adc0529c2497c1874da6ee929"
+      "sha256": "38b508075857c7c2cddd2f49ecfbadfe6e933b449a3ea327c51be96b68111c17"
     },
     {
       "path": "work/sign-release.ps1",
@@ -464,7 +464,7 @@
     {
       "path": "work/src/AssemblyInfo.cs",
       "bytes": 313,
-      "sha256": "add98161da32645702530ab4c72c1c8cd563c5e5c898b434cdddcdf382a972f6"
+      "sha256": "93af6b04bd1de0502784c584c7f7f127398f1d7604fbdb700a9fa96919f895b7"
     },
     {
       "path": "work/src/AutoUpdateClient.cs",
@@ -488,8 +488,8 @@
     },
     {
       "path": "work/src/ClaudeQuota.cs",
-      "bytes": 20121,
-      "sha256": "149d974229d8aab8c6e791ac8df5259887df1590501c63a6ca2bdb96c62e218c"
+      "bytes": 23737,
+      "sha256": "0323cd9beb242afa10b054b6f0d9f59614b7aa54948ed6532246cd54c5803550"
     },
     {
       "path": "work/src/ClaudeQuotaUi.cs",
@@ -513,8 +513,8 @@
     },
     {
       "path": "work/src/ConnectionDiagnostics.cs",
-      "bytes": 16764,
-      "sha256": "f8e1adf779d845093586c3e726dcfee21d21e787a28cdf7f8c2eb57a5de2c820"
+      "bytes": 17802,
+      "sha256": "9c67b88fbec9ba22bcab232dbbc8a34b0f993616b76b7ab0f7df5f056fca6fb6"
     },
     {
       "path": "work/src/ConnectionEnvironmentUi.cs",
@@ -523,8 +523,8 @@
     },
     {
       "path": "work/src/ConnectionFlow.cs",
-      "bytes": 7313,
-      "sha256": "d5614054fff22cf32f6568e3b6a92f84d4b111f86d7fcc70de365821bbb04edc"
+      "bytes": 7363,
+      "sha256": "a18eb03ad01ea124124aa6868c4089c6ea9808316d868fe77d8d305b757fc82e"
     },
     {
       "path": "work/src/DashboardAnalysisUi.cs",
@@ -583,8 +583,8 @@
     },
     {
       "path": "work/src/ExtraUi.cs",
-      "bytes": 62537,
-      "sha256": "45a23b687ec3da30e815b5859c43e41b791d4c37b2da1dcac584d517be71a1e8"
+      "bytes": 62895,
+      "sha256": "e9019aa5ff401907c173aab2c232eccd70e6376892fef1b3bd298ddf4acd5fe9"
     },
     {
       "path": "work/src/HiggsfieldUi.cs",
@@ -598,8 +598,8 @@
     },
     {
       "path": "work/src/Localization.cs",
-      "bytes": 206747,
-      "sha256": "95839dcebbdcafdf8cfe0a9cadf952af7c81e5b4fd613dca5cb4840ec2b05adb"
+      "bytes": 207553,
+      "sha256": "3d2ec9b1c58af41a8db32067d26c45ab21ff494a59a61a442048f4db43f39f09"
     },
     {
       "path": "work/src/ManagementUi.cs",
@@ -623,8 +623,8 @@
     },
     {
       "path": "work/src/OnboardingUi.cs",
-      "bytes": 21377,
-      "sha256": "fb895110797810b5ceba43da04c8b790b152c9f73bceb2431972fb02315eea9e"
+      "bytes": 21611,
+      "sha256": "3c49cc8b660e4f69dd1dd47f95477c0d871f4aead5916cace98d0a260b2ac287"
     },
     {
       "path": "work/src/OpenAiUsage.cs",
@@ -675,6 +675,16 @@
       "path": "work/src/Settings.cs",
       "bytes": 30391,
       "sha256": "22c9221159e272e0c5ad1f7f47cb0146b3823c34cce7e54e19ee45fd8fb100f0"
+    },
+    {
+      "path": "work/src/SupportDiagnostics.cs",
+      "bytes": 6989,
+      "sha256": "c5963d2e20fe2a0981531114ac7921b5e79d70e768a944641f569c6d43994c5a"
+    },
+    {
+      "path": "work/src/SupportDiagnosticsUi.cs",
+      "bytes": 4369,
+      "sha256": "abe7b3c73db9061c9df4fabe66cfe2b0ada50194ed4ad2fcd03aceee2358354f"
     },
     {
       "path": "work/src/UiLocalization.cs",
@@ -773,8 +783,8 @@
     },
     {
       "path": "work/src/WidgetReleaseUi.cs",
-      "bytes": 6437,
-      "sha256": "b832c68c3f094af217ae956b9733c201494cfdf876bb57f6252df15864d43a0b"
+      "bytes": 6500,
+      "sha256": "5378fdab5638b95b3eae9b9d3c054ee9f472da422ff6b0b491d18949f93ad8ac"
     },
     {
       "path": "work/src/WidgetStartup.cs",
@@ -783,8 +793,8 @@
     },
     {
       "path": "work/src/WidgetStatus.cs",
-      "bytes": 5190,
-      "sha256": "416e40acd476e1b2e30ea26e90a9813e82485be1e85dd67270e8017b7c6ff4d0"
+      "bytes": 5315,
+      "sha256": "aedabeaac67ae8f87db3dc00304069ae46290f26fa23cb5d30ee1ce96eab9904"
     },
     {
       "path": "work/src/WidgetTheme.cs",
@@ -868,8 +878,8 @@
     },
     {
       "path": "work/tests/claude-quota-tests.cs",
-      "bytes": 13906,
-      "sha256": "70b2c8d8414954001f6336faf41739fc8b20eeca8b3c7dc2495ef38c7f17a424"
+      "bytes": 21088,
+      "sha256": "0326f84e71938ad4d12386122af8b6192ff6594ac2c8fbd267a09df253448480"
     },
     {
       "path": "work/tests/claude-receipt-ui-tests.cs",
@@ -953,13 +963,13 @@
     },
     {
       "path": "work/tests/connection-flow-tests.cs",
-      "bytes": 36742,
-      "sha256": "7b3209285aa54a65ee6565d014e8ac11555235806b6824539bc10c11c0445f73"
+      "bytes": 36800,
+      "sha256": "4d86bd855b037ac7a958b72edbcaa4b0fe51914df84e22fa97525b7d01030a86"
     },
     {
       "path": "work/tests/connection-flow-tests.ps1",
-      "bytes": 1401,
-      "sha256": "36ee5de7316329c6fa4bf37c47b2b5c1d3c64cb155f13b0c1ab9a5ffb5f40918"
+      "bytes": 1472,
+      "sha256": "f7143f81e61f8db88713a6900f5a8be417019c7f36bbc367e56f495ec521502c"
     },
     {
       "path": "work/tests/connection-tests.cs",
@@ -1218,8 +1228,8 @@
     },
     {
       "path": "work/tests/onboarding-tests.cs",
-      "bytes": 17577,
-      "sha256": "0b049aa8147c6a54064797d7be3ec73f808356fd95c6ef5a436bd9bf670c57c2"
+      "bytes": 18470,
+      "sha256": "5e6a1a94d5b93b9bbdf82a6a8846a30691a4b72c8257d2868a92980a3e0ac2f2"
     },
     {
       "path": "work/tests/onboarding-tests.ps1",
@@ -1315,6 +1325,11 @@
       "path": "work/tests/storage-tests.ps1",
       "bytes": 723,
       "sha256": "d4267961d8b78405514e0a529cf1d8fab4cfb7535da5da9753a75991bd229180"
+    },
+    {
+      "path": "work/tests/support-diagnostics-tests.cs",
+      "bytes": 10080,
+      "sha256": "d767da85b2b61d931cff80b1613d3fd4ebde7a2d21b16198e9c0325f59aa1131"
     },
     {
       "path": "work/tests/theme-tests.cs",

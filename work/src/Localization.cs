@@ -561,6 +561,11 @@ namespace UsageWidget
             d["현재 Free에서 이용 중"] = "Active on Free";
             d["연결 보관됨"] = "Connection retained";
             d["코드 수신 · 수동 기록"] = "Code updates · manual entries";
+            d["직접 조회 · 응답 수신 · 수동 기록"] = "Direct query · received updates · manual entries";
+            d["진단 정보 복사"] = "Copy diagnostics";
+            d["진단 정보를 복사했습니다. 문의할 때 붙여 넣어 주세요."] = "Diagnostics copied. Paste them when requesting help.";
+            d["진단 정보를 복사하지 못했습니다. 잠시 후 다시 시도해 주세요."] = "Could not copy diagnostics. Try again shortly.";
+            d["앱·확인된 CLI 버전, 연결 상태와 오류 종류를 복사합니다. 계정·키·경로·사용량·원본 로그는 포함하지 않습니다."] = "Copy app and observed CLI versions, connection state and error categories. Accounts, keys, paths, usage values and raw logs are excluded.";
             d["웹 구독 동기화"] = "Web subscription sync";
             d["예시 데이터"] = "Sample data";
             d["연결 확인 필요"] = "Check connection";

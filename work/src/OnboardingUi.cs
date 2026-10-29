@@ -136,7 +136,7 @@ namespace UsageWidget
         {
             if (id == "eleven" || id == "openai") return OnboardingText("API 키","API key");
             if (id == "gemini" || id == "cursor" || id == "higgsfield-api") return OnboardingText("수동 기록","Manual entry");
-            if (id == "claude") return OnboardingText("코드 수신 · 수동","Code receipt / manual");
+            if (id == "claude") return OnboardingText("직접 조회 · 수동","Direct query / manual");
             return OnboardingText("브라우저 로그인","Browser sign-in");
         }
 
@@ -147,7 +147,7 @@ namespace UsageWidget
             onboardingFeedback = ConnectionText(onboardingDetection ?? OnboardingText("이 PC의 연결 준비 상태를 확인하고 있습니다…","Checking this PC for connection setup…"),12,"#647070",FontWeights.Normal,new Thickness(0,0,0,18)); onboardingBody.Children.Add(onboardingFeedback);
             string instructions;
             if (id == "codex") instructions = OnboardingText("Codex 앱 또는 CLI를 설치하고 로그인하세요. 연결 화면에서 ‘연결 확인’을 누르면 기존 로그인을 확인합니다. 로그인이 필요하면 ‘브라우저로 로그인’을 이용하세요. WSL 사용자는 연결 환경에서 배포판을 선택하세요.","Install and sign in to the Codex app or CLI. Choose ‘Check connection’ in service settings to use your existing sign-in, or ‘Sign in with browser’ if needed. For WSL, choose your distribution in connection settings.");
-            else if (id == "claude") instructions = OnboardingText("Claude Pro·Max: Claude Code에서 로그인한 뒤 ‘Claude Code 연결’을 누르세요. 다음 응답을 받은 후 ‘수신 확인’으로 한도를 확인합니다. Free·API 키·웹 사용자는 수동 기록을 이용하세요. 설치만으로 잔량 조회가 완료되지는 않습니다.","Claude Pro/Max: sign in to Claude Code, then choose ‘Connect Claude Code’. After its next response, check the received quota. Free, API-key and web users can enter readings manually. Installation alone does not verify usage.");
+            else if (id == "claude") instructions = OnboardingText("Claude Pro·Max: Claude Code 2.1.304 이상에서 구독 계정으로 로그인한 뒤 ‘Claude Code 연결’을 누르세요. ‘잔여량 조회’와 위젯 새로고침으로 대화 없이 한도를 확인합니다. Free·API 키·웹 사용자는 수동 기록을 이용하세요. 설치만으로 잔량 조회가 완료되지는 않습니다.","Claude Pro/Max: sign in with your subscription account in Claude Code 2.1.304 or later, then choose ‘Connect Claude Code’. Use ‘Check remaining usage’ or refresh the widget to query limits without sending a conversation. Free, API-key and web users can enter readings manually. Installation alone does not verify usage.");
             else if (id == "eleven") instructions = OnboardingText("ElevenLabs에서 API 키를 만들고 ‘사용자 → 읽기’ 권한을 켜세요. 연결 화면에 키를 입력하고 ‘연결 확인 후 저장’을 누릅니다. 조회에 성공한 키만 이 PC에 암호화 저장합니다.","Create an ElevenLabs API key with User → Read permission. Enter it in service settings and choose ‘Verify and save’. Only successfully verified keys are encrypted and saved on this PC.");
             else if (id == "openai") instructions = OnboardingText("OpenAI 조직 소유자가 발급한 Admin API 키가 필요합니다. 일반 API 키와 ChatGPT 개인 구독은 이 연결에서 조회하지 않습니다. 월 API 비용을 표시하며, 예산은 선택 사항입니다.","Use an Admin API key from your OpenAI organization owner. This connection cannot read a personal ChatGPT subscription or use a regular API key. It shows monthly API cost; a budget is optional.");
             else if (id == "higgsfield") instructions = OnboardingText("연결 화면에서 ‘힉스필드 로그인’을 누르고 브라우저에서 로그인·CLI 접근을 승인하세요. 작업 공간이 여러 개면 사용할 공간을 선택한 뒤 잔량을 확인합니다. 이 창을 닫아도 로그인 대기는 유지됩니다.","Select ‘Sign in to Higgsfield’ in connection settings, then sign in and approve CLI access in your browser. If you have multiple workspaces, choose one and verify its balance. Closing this guide keeps the pending sign-in running.");
@@ -223,7 +223,7 @@ namespace UsageWidget
             if (exiting || onboardingWindow == null || generation != onboardingProbeGeneration || onboardingStep != 1 || onboardingState.ServiceId != id) return;
             onboardingDetection = result == "saved" ? OnboardingText("저장된 연결 정보가 있습니다. 연결 화면에서 실제 조회를 확인해 주세요.","Saved connection information was found. Verify a real reading in connection settings.")
                 : result == "installed" ? OnboardingText("Codex 설치를 찾았습니다. 다음으로 로그인과 사용량을 확인합니다.","A Codex installation was found. Next, verify sign-in and usage.")
-                : result == "configuration" ? OnboardingText("Claude 설정 폴더를 찾았습니다. 구독·로그인과 수신 상태는 연결 화면에서 확인합니다.","A Claude configuration folder was found. Check subscription, sign-in and receipt status in connection settings.")
+                : result == "configuration" ? OnboardingText("Claude 설정 폴더를 찾았습니다. 연결 화면의 ‘잔여량 조회’에서 CLI 버전·구독 로그인과 실제 한도를 확인하세요.","A Claude configuration folder was found. Use ‘Check remaining usage’ in connection settings to verify the CLI version, subscription sign-in and actual limits.")
                 : result == "wsl" ? OnboardingText("저장된 WSL 환경이 있습니다. 연결 화면에서 배포판을 확인해 주세요.","A saved WSL environment was found. Check the distribution in connection settings.")
                 : OnboardingText("아래 안내에 따라 연결을 준비해 주세요. 설치 여부만으로 연결 완료로 표시하지 않습니다.","Follow the steps below to prepare a connection. An installation alone is not a verified connection.");
             if (onboardingFeedback != null) onboardingFeedback.Text = onboardingDetection;

@@ -278,7 +278,10 @@ namespace UsageWidget
             heading.Children.Add(ConnectionText("연결 상태를 확인하고 위젯에 표시할 서비스를 관리하세요.",12,"#647070",FontWeights.Normal,new Thickness(0,7,0,0)));
             var close = ManagementAction("닫기",() => dialog.Close());
             close.HorizontalAlignment = HorizontalAlignment.Right;
-            var bottom = new LocalizedBorder { Child = close, BorderBrush = BrushOf("#C8CECF"), BorderThickness = new Thickness(0,1,0,0), Padding = new Thickness(0,14,0,0), Margin = new Thickness(0,16,0,0) };
+            close.VerticalAlignment = VerticalAlignment.Top;
+            var footer = new DockPanel(); DockPanel.SetDock(close,Dock.Right); footer.Children.Add(close);
+            footer.Children.Add(MakeDiagnosticsControls(() => ids[Math.Max(0,Math.Min(ids.Length - 1,servicesSelector == null ? 0 : servicesSelector.SelectedIndex))]));
+            var bottom = new LocalizedBorder { Child = footer, BorderBrush = BrushOf("#C8CECF"), BorderThickness = new Thickness(0,1,0,0), Padding = new Thickness(0,14,0,0), Margin = new Thickness(0,16,0,0) };
             DockPanel.SetDock(bottom,Dock.Bottom); root.Children.Add(bottom);
             var columns = new Grid(); columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(206) }); columns.ColumnDefinitions.Add(new ColumnDefinition());
             root.Children.Add(columns); dialog.Content = root;
@@ -408,7 +411,7 @@ namespace UsageWidget
         private string ServiceConnectionMode(string id)
         {
             if (id == "gemini" || id == "cursor" || id == "higgsfield-api") return "수동 기록";
-            if (id == "claude") return "코드 수신 · 수동 기록";
+            if (id == "claude") return "직접 조회 · 응답 수신 · 수동 기록";
             if (id == "higgsfield") return "웹 구독 동기화";
             return "자동 조회";
         }
@@ -421,7 +424,7 @@ namespace UsageWidget
             if (!ServiceHasSavedConnection(id)) return id == "gemini" || id == "cursor" || id == "higgsfield-api" ? "기록 없음" : "연결 전";
             if (id == "gemini" || id == "cursor" || id == "higgsfield-api" || id == "claude" && !claudeConfigured) return "기록 있음";
             if (view.LastSuccess.HasValue) return "연결됨";
-            return id == "codex" ? "로그인 발견" : id == "claude" ? "수신 대기" : id == "higgsfield" ? "로그인 저장됨" : "키 저장됨";
+            return id == "codex" ? "로그인 발견" : id == "claude" ? "조회 대기" : id == "higgsfield" ? "로그인 저장됨" : "키 저장됨";
         }
 
         private static ResourceDictionary ServiceNavigationResources()
